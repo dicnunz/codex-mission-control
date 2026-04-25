@@ -35,6 +35,8 @@ DEFAULT_IMAGE_RETENTION_DAYS = 7
 MAX_IMAGES_PER_MESSAGE = 4
 DEFAULT_REASONING_EFFORT = "xhigh"
 REASONING_EFFORTS = {"low", "medium", "high", "xhigh"}
+DEFAULT_REPLY_STYLE = "brief"
+REPLY_STYLES = {"brief", "verbose"}
 SESSION_RE = re.compile(r"session id:\s*([0-9a-fA-F-]{36})", re.IGNORECASE)
 THREAD_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,39}$")
 STARTED_AT = time.time()
@@ -124,6 +126,10 @@ def env_choice(name: str, default: str, allowed: set[str]) -> str:
         choices = ", ".join(sorted(allowed))
         raise SystemExit(f"{name} must be one of: {choices}")
     return value
+
+
+def reply_style_default() -> str:
+    return env_choice("CODEX_TELEGRAM_REPLY_STYLE", DEFAULT_REPLY_STYLE, REPLY_STYLES)
 
 
 def now_iso() -> str:
@@ -605,6 +611,7 @@ def ensure_thread(data: dict[str, Any], chat_id: int, name: str) -> dict[str, An
         }
         threads[name] = thread
     thread.setdefault("workdir", default_workdir())
+    thread.setdefault("reply_style", reply_style_default())
     return thread
 
 
@@ -656,13 +663,31 @@ def relay_assistant_personality() -> str:
     return os.environ.get("CODEX_RELAY_ASSISTANT_PERSONALITY", "").strip()
 
 
-def codex_prompt(message_text: str, thread_name: str, image_paths: Optional[list[Path]] = None) -> str:
+def style_instruction(reply_style: str) -> str:
+    if reply_style == "verbose":
+        return (
+            "Reply with enough detail to be useful for debugging or handoff. "
+            "Use concise structure, include verification, and avoid filler."
+        )
+    return (
+        "Reply in the fewest words that still answer the task. "
+        "Prefer concrete status, changed files, verification, and the next human-only boundary."
+    )
+
+
+def codex_prompt(
+    message_text: str,
+    thread_name: str,
+    image_paths: Optional[list[Path]] = None,
+    reply_style: Optional[str] = None,
+) -> str:
     user_name = relay_user_name()
     assistant_name = relay_assistant_name()
     personality = relay_assistant_personality()
     personality_note = (
         f"\n{assistant_name}'s personality: {personality}\n" if personality else ""
     )
+    style = reply_style if reply_style in REPLY_STYLES else reply_style_default()
     image_paths = image_paths or []
     image_note = ""
     if image_paths:
@@ -681,6 +706,7 @@ Use the live Mac state and the available Codex plugins/tools when useful, includ
 {user_name} has explicitly allowed Atlas/browser/computer-use control for Telegram tasks. For browser tasks, prefer Atlas or Browser Use when appropriate.
 Read live state first. Act directly. Keep replies terse and concrete.
 Default voice: Mac-side operator, not generic chatbot. Say what changed, what you verified, and the next human-only boundary if there is one.
+Reply style: {style}. {style_instruction(style)}
 Do not reveal secrets, tokens, auth files, private logs, session transcripts, or personal content.
 If a requested action is blocked by credentials, permissions, network, macOS privacy, tool availability, or mandatory safety confirmation, state the exact blocker and the next human-only step.
 This Telegram chat is mapped to the Codex thread named `{thread_name}`.
@@ -843,7 +869,12 @@ def run_codex(
     stdout = ""
     stderr = ""
     returncode: Optional[int] = None
-    prompt = codex_prompt(message_text, thread_name, image_paths)
+    prompt = codex_prompt(
+        message_text,
+        thread_name,
+        image_paths,
+        str(thread.get("reply_style") or reply_style_default()),
+    )
     input_text: Optional[str] = prompt
 
     try:
@@ -929,7 +960,11 @@ def command_help() -> str:
             "/where - show current thread and folder",
             "/cd path - set this thread's folder",
             "/status - show runtime state",
+            "/latency - show last run timing and timeout",
             "/alive - show the Mac-side remote status",
+            "/brief - terse replies for this thread",
+            "/verbose - detailed replies for this thread",
+            "/update - show local update command",
             "/capabilities - show what this remote can do",
             "/try - show good first prompts",
             "/tools - probe Codex tool access",
@@ -948,6 +983,7 @@ def status_text(thread: dict[str, Any], chat_id: Optional[int] = None) -> str:
         f"folder: {thread.get('workdir', default_workdir())}",
         f"model: {os.environ.get('CODEX_TELEGRAM_MODEL', 'gpt-5.5')}",
         f"reasoning effort: {env_choice('CODEX_TELEGRAM_REASONING_EFFORT', DEFAULT_REASONING_EFFORT, REASONING_EFFORTS)}",
+        f"reply style: {thread.get('reply_style') or reply_style_default()}",
         f"sandbox: {os.environ.get('CODEX_TELEGRAM_SANDBOX', 'danger-full-access')}",
         f"approval: {os.environ.get('CODEX_TELEGRAM_APPROVAL', 'never')}",
         f"timeout: {env_int('CODEX_TELEGRAM_TIMEOUT_SECONDS', DEFAULT_TIMEOUT_SECONDS)}s",
@@ -973,6 +1009,7 @@ def alive_text(thread: dict[str, Any]) -> str:
             f"folder: {thread.get('workdir', default_workdir())}",
             f"model: {os.environ.get('CODEX_TELEGRAM_MODEL', 'gpt-5.5')}",
             f"reasoning: {env_choice('CODEX_TELEGRAM_REASONING_EFFORT', DEFAULT_REASONING_EFFORT, REASONING_EFFORTS)}",
+            f"style: {thread.get('reply_style') or reply_style_default()}",
             "remote: Telegram -> LaunchAgent -> Codex CLI -> this Mac",
             "next: send /tools, /try, or a normal task.",
         ]
@@ -1018,6 +1055,25 @@ def jobs_text(chat_id: int, thread: dict[str, Any]) -> str:
         lines.append("- none")
     lines.extend(last_run_lines(thread))
     return "\n".join(lines)
+
+
+def latency_text(thread: dict[str, Any]) -> str:
+    lines = [
+        "latency:",
+        "- /ping, /alive, /status: immediate bridge replies",
+        "- Codex tasks: local Codex runtime + tool work + Telegram delivery",
+        f"- timeout: {env_int('CODEX_TELEGRAM_TIMEOUT_SECONDS', DEFAULT_TIMEOUT_SECONDS)}s",
+    ]
+    lines.extend(last_run_lines(thread))
+    return "\n".join(lines)
+
+
+def set_reply_style_text(thread: dict[str, Any], style: str) -> str:
+    thread["reply_style"] = style
+    thread["updated_at"] = now_iso()
+    if style == "verbose":
+        return "Reply style: verbose"
+    return "Reply style: brief"
 
 
 def history_text(chat_id: int) -> str:
@@ -1252,6 +1308,18 @@ def try_text() -> str:
     )
 
 
+def update_text() -> str:
+    return "\n".join(
+        [
+            "Update on the Mac:",
+            "cd path/to/codex-relay",
+            "./scripts/update.sh",
+            "",
+            "That pulls latest, reinstalls the LaunchAgent, and runs doctor.",
+        ]
+    )
+
+
 def handle_message(
     api: TelegramAPI,
     message: dict[str, Any],
@@ -1402,6 +1470,28 @@ def handle_message(
         api.send_message(chat_id, status_text(thread, chat_id), message_id)
         return
 
+    if command == "/latency":
+        with THREADS_LOCK:
+            _data, _active_name, thread = active_state(threads_path, chat_id)
+        api.send_message(chat_id, latency_text(thread), message_id)
+        return
+
+    if command in {"/brief", "/terse"}:
+        with THREADS_LOCK:
+            data, _active_name, thread = active_state(threads_path, chat_id)
+            reply = set_reply_style_text(thread, "brief")
+            write_threads(threads_path, data)
+        api.send_message(chat_id, reply, message_id)
+        return
+
+    if command == "/verbose":
+        with THREADS_LOCK:
+            data, _active_name, thread = active_state(threads_path, chat_id)
+            reply = set_reply_style_text(thread, "verbose")
+            write_threads(threads_path, data)
+        api.send_message(chat_id, reply, message_id)
+        return
+
     if command in {"/jobs", "/job"}:
         with THREADS_LOCK:
             _data, _active_name, thread = active_state(threads_path, chat_id)
@@ -1428,6 +1518,10 @@ def handle_message(
 
     if command in {"/try", "/demo"}:
         api.send_message(chat_id, try_text(), message_id)
+        return
+
+    if command == "/update":
+        api.send_message(chat_id, update_text(), message_id)
         return
 
     if command in {"/automations", "/automation"}:
@@ -1521,6 +1615,7 @@ def check_config() -> int:
     print(f"sandbox={os.environ.get('CODEX_TELEGRAM_SANDBOX', 'danger-full-access')}")
     print(f"model={os.environ.get('CODEX_TELEGRAM_MODEL', 'gpt-5.5')}")
     print(f"reasoning_effort={env_choice('CODEX_TELEGRAM_REASONING_EFFORT', DEFAULT_REASONING_EFFORT, REASONING_EFFORTS)}")
+    print(f"reply_style={reply_style_default()}")
     print(f"approval={os.environ.get('CODEX_TELEGRAM_APPROVAL', 'never')}")
     print(f"timeout_seconds={env_int('CODEX_TELEGRAM_TIMEOUT_SECONDS', DEFAULT_TIMEOUT_SECONDS)}")
     print(f"reply_threading={env_bool('CODEX_TELEGRAM_REPLY_TO_MESSAGES', False)}")

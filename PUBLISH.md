@@ -34,13 +34,14 @@ Use the primary post from `LAUNCH_POSTS.md`, then immediately reply with:
 ```text
 Install:
 
-git clone https://github.com/dicnunz/codex-relay.git
+gh repo clone dicnunz/codex-relay
 cd codex-relay
 ./scripts/install.sh
 
 Then DM your bot:
 /alive
 /tools
+/latency
 /jobs
 /automations
 send a screenshot and ask what changed
@@ -74,6 +75,14 @@ Those can work. Codex Relay is the smaller shape when you want task-level Codex 
 - README transcript: `assets/demo-transcript.svg`
 
 Before posting, make sure the first frame still shows the complete flow: Telegram -> LaunchAgent -> Codex CLI -> Mac.
+
+Best demo shape:
+
+1. Phone sends `/tools`.
+2. Telegram shows a real job receipt.
+3. Mac visibly runs local Codex.
+4. Telegram receives the final answer.
+5. End on the repo quickstart, not a marketing slide.
 
 ## Human-Only Boundary
 

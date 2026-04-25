@@ -60,6 +60,9 @@ def main() -> int:
 
     prompt = relay.codex_prompt("what is in this image?", "main", [Path("/tmp/example.png")])
     assert_true("attached to this Codex prompt" in prompt, "expected image prompt note")
+    assert_true("Reply style: brief" in prompt, "expected default brief reply style")
+    verbose_prompt = relay.codex_prompt("explain", "main", reply_style="verbose")
+    assert_true("Reply style: verbose" in verbose_prompt, "expected verbose reply style")
     assert_true(relay.extract_session_id("Session ID: 12345678-1234-1234-1234-123456789abc"), "expected session id")
     assert_true(relay.env_bool("MISSING_TEST_BOOL", True), "expected default bool support")
     assert_true(relay.authorized(1, 2, "private", {1}, {2}), "expected private allowlist match")
@@ -103,6 +106,7 @@ def main() -> int:
     }
     status = relay.status_text(thread)
     assert_true("reply threading: disabled" in status, "expected reply threading status")
+    assert_true("reply style: brief" in status, "expected reply style status")
     assert_true("group chats: disabled" in status, "expected group chat status")
     assert_true("reasoning effort: xhigh" in status, "expected default xhigh reasoning status")
     assert_true("running jobs: 0" in status, "expected running job count")
@@ -120,6 +124,8 @@ def main() -> int:
     finally:
         relay.finish_job(job)
     assert_true("- none" in relay.jobs_text(123, thread), "expected empty jobs output")
+    assert_true("last run: ok; 1.2s; 1 image" in relay.latency_text(thread), "expected latency text")
+    assert_true("./scripts/update.sh" in relay.update_text(), "expected update command text")
 
     with tempfile.TemporaryDirectory() as tmp:
         old_state_dir = os.environ.get("CODEX_TELEGRAM_STATE_DIR")
@@ -148,6 +154,43 @@ def main() -> int:
         assert_true("prompt" not in json.dumps(events), "expected sanitized history")
         history = relay.history_text(123)
         assert_true("ok; main; 2.3s; 1 image; repo" in history, "expected history text")
+
+        threads_path = Path(tmp) / "threads.json"
+        fake_style = FakeTelegram()
+        relay.handle_message(
+            fake_style,
+            {
+                "message_id": 3,
+                "chat": {"id": 123, "type": "private"},
+                "from": {"id": 1},
+                "text": "/verbose",
+            },
+            {1},
+            {123},
+            threads_path,
+        )
+        data = relay.read_threads(threads_path)
+        assert_true(
+            data["threads_by_chat"]["123"]["main"]["reply_style"] == "verbose",
+            "expected /verbose to persist style",
+        )
+        relay.handle_message(
+            fake_style,
+            {
+                "message_id": 4,
+                "chat": {"id": 123, "type": "private"},
+                "from": {"id": 1},
+                "text": "/brief",
+            },
+            {1},
+            {123},
+            threads_path,
+        )
+        data = relay.read_threads(threads_path)
+        assert_true(
+            data["threads_by_chat"]["123"]["main"]["reply_style"] == "brief",
+            "expected /brief to persist style",
+        )
 
         fake_codex = Path(tmp) / "fake-codex"
         fake_codex.write_text(

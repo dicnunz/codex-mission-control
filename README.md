@@ -1,6 +1,6 @@
 # Codex Relay
 
-A private Telegram remote for Codex on your Mac.
+Text your Mac's Codex from Telegram. Local. No VNC. No hosted relay.
 
 <p align="center">
   <img src="assets/social-card.svg" alt="Codex Relay: Telegram remote for Codex on your Mac" width="100%">
@@ -10,9 +10,28 @@ Text your bot from your phone. A LaunchAgent on your Mac runs the local Codex ap
 
 That is the product: Telegram is the remote, Codex is the engine, and your Mac is the machine doing the work.
 
-Use this when VNC is the wrong shape and a PWA/app-server setup is more surface area than you want: no tiny desktop, no Cloudflare Access, no web app server to maintain. You text Codex, your Mac does the work.
+Use this when VNC is the wrong shape and a PWA/app-server setup is more surface area than you want: no tiny desktop, no Cloudflare Access, no web app server to maintain. You text the task; the Mac does the work.
 
 > Unofficial project. Not affiliated with OpenAI or Telegram.
+
+## Quickstart
+
+```bash
+gh repo clone dicnunz/codex-relay
+cd codex-relay
+./scripts/install.sh
+```
+
+The only manual credential step is creating a bot with `@BotFather` and pasting its token. The token stays in your local `.env`.
+
+Then DM your bot:
+
+```text
+/alive
+/tools
+/latency
+send a screenshot and ask what changed
+```
 
 ## Demo
 
@@ -37,6 +56,15 @@ The demo is meant to make one thing obvious: Telegram is only the remote. The re
   <img src="assets/demo-transcript.svg" alt="Codex Relay Telegram transcript" width="760">
 </p>
 
+## What It Is
+
+| It is | It is not |
+| --- | --- |
+| A private Telegram remote for local Codex on your Mac | An official OpenAI app |
+| A macOS LaunchAgent that calls the Codex app CLI | A hosted agent platform |
+| A way to send tasks, images, repo work, and local Mac requests from your phone | A VNC screen mirror |
+| A small local bridge with allow-listed Telegram access | A bypass for logins, MFA, limits, or confirmations |
+
 ## Why Use It
 
 Codex Relay is useful when a task is worth handing to the Mac even though you are not at the keyboard:
@@ -54,6 +82,7 @@ It is not instant chat. A `/ping` is immediate, but a normal request waits for C
 - `gpt-5.5` with `xhigh` reasoning by default through the Codex app CLI.
 - Private Telegram bot allow-listed to your Telegram user.
 - Background jobs with `/jobs`, `/cancel`, and `/history`.
+- Latency and mode controls with `/latency`, `/brief`, and `/verbose`.
 - Named Codex threads: `/new`, `/use`, `/list`, `/reset`.
 - Per-thread folders: `/cd`, `/where`, `/home`.
 - Telegram photos and image documents passed to Codex with `--image`.
@@ -70,7 +99,7 @@ Telegram DM -> local LaunchAgent -> Codex app CLI -> your Mac -> Telegram reply
 
 The relay does not mirror the visible Codex desktop chat UI. It invokes your local Codex CLI with the configured model, workdir, sandbox, approval mode, and optional image attachment.
 
-## Install
+## Install Details
 
 Requirements:
 
@@ -78,12 +107,6 @@ Requirements:
 - Codex Mac app installed and signed in
 - Telegram account
 - A Telegram bot token from `@BotFather`
-
-```bash
-git clone https://github.com/dicnunz/codex-relay.git
-cd codex-relay
-./scripts/install.sh
-```
 
 The installer:
 
@@ -93,14 +116,14 @@ The installer:
 4. Waits for you to send `/start`.
 5. Allow-lists your Telegram user.
 6. Installs and starts the LaunchAgent.
-
-The only manual credential step is creating a bot with `@BotFather` and pasting its token. The token stays in your local `.env` and is not committed.
+7. Runs `doctor.sh` so setup failures are caught immediately.
 
 After install, DM your bot:
 
 ```text
 /alive
 /tools
+/latency
 /new repo
 /cd Projects/my-repo
 read this repo and tell me the next best fix
@@ -111,6 +134,7 @@ read this repo and tell me the next best fix
 ```text
 /alive        live route, model, folder, uptime
 /status       current thread and runtime config
+/latency      last Codex run timing and timeout
 /jobs         running jobs and last run
 /cancel id    stop a running job
 /history      recent run receipts, no prompt/response logs
@@ -123,6 +147,9 @@ read this repo and tell me the next best fix
 /where        show active folder
 /cd path      set active folder
 /home         set folder to ~
+/brief        terse replies for this thread
+/verbose      detailed replies for this thread
+/update       show local update command
 /reset        clear the current Codex session
 /ping         bridge check
 ```
@@ -141,11 +168,14 @@ Normal messages use `CODEX_TELEGRAM_MODEL=gpt-5.5` and `CODEX_TELEGRAM_REASONING
 
 `/status` shows the active reasoning setting, last run status, and latency after Codex replies.
 
+Use `/brief` for phone-friendly answers and `/verbose` when you want debugging detail or a handoff summary. The setting is stored per thread.
+
 ## Verify
 
 ```bash
 ./scripts/doctor.sh
 ./scripts/status.sh
+./scripts/demo.sh
 ```
 
 `doctor.sh` checks the Mac environment, Codex CLI, local config, LaunchAgent, runtime copy, Python syntax, and smoke tests.
@@ -155,6 +185,12 @@ Runtime files:
 ```text
 ~/Library/Application Support/CodexRelay
 ~/Library/LaunchAgents/com.codexrelay.agent.plist
+```
+
+Update later with:
+
+```bash
+./scripts/update.sh
 ```
 
 ## Safety

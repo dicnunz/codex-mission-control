@@ -3,11 +3,13 @@
 ## Primary X Post
 
 ```text
-I built Codex Relay: a private Telegram remote for Codex on your Mac.
+I built Codex Relay.
 
-Text the bot from your phone. Your Mac runs the local Codex app CLI and replies when the run finishes.
+Text your Mac's Codex from Telegram.
 
-No hosted relay account. No fake instant-agent claims.
+Telegram DM -> local LaunchAgent -> Codex CLI -> Telegram reply.
+
+No VNC. No hosted relay. No PWA to maintain.
 
 https://github.com/dicnunz/codex-relay
 ```
@@ -17,7 +19,7 @@ Attach: `assets/codex-relay-demo.mp4`
 ## Alternate Short
 
 ```text
-Codex Relay turns Telegram into a phone remote for Codex on your Mac.
+Codex Relay turns Telegram into a phone remote for local Codex on your Mac.
 
 Your phone sends the task.
 Your Mac runs the local Codex CLI.
@@ -63,7 +65,7 @@ This is exactly the gap I tried to make small: not VNC, not a phone terminal, no
 
 Telegram DM -> local LaunchAgent -> Codex app CLI on the Mac -> Telegram reply.
 
-It supports screenshots/images, named threads, jobs/cancel/history, and a guardrailed /automations inspection shortcut.
+It supports screenshots/images, named threads, jobs/cancel/history, latency/status checks, brief/verbose modes, and a guardrailed /automations inspection shortcut.
 
 github.com/dicnunz/codex-relay
 ```
@@ -73,13 +75,14 @@ github.com/dicnunz/codex-relay
 ```text
 Install:
 
-git clone https://github.com/dicnunz/codex-relay.git
+gh repo clone dicnunz/codex-relay
 cd codex-relay
 ./scripts/install.sh
 
 Then DM your bot:
 /alive
 /tools
+/latency
 /jobs
 /automations
 send a screenshot and ask what changed
