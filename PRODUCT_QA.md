@@ -20,11 +20,11 @@ The product is ready to show only when these are true:
 - Runtime script matches the repo copy.
 - `./scripts/doctor.sh` passes.
 - Local `gpt-5.5` image check works through `/Applications/Codex.app/Contents/Resources/codex`.
+- Real Telegram image round trip works: Telegram photo + caption -> private attachment save -> Codex `--image` -> Telegram reply.
 - Generated demo is 1280x720 H.264.
 
 ## Current Human-Only Checks
 
-- Send one real Telegram image and confirm the bot replies from the new image-aware runtime.
 - Repost to X only after the final post text is confirmed.
 
 ## Launch Bar
