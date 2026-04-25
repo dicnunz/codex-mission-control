@@ -25,8 +25,8 @@ write_social() {
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-label="Codex Relay social card">
   <rect width="1280" height="640" fill="#050505"/>
   <rect x="54" y="44" width="1172" height="552" rx="18" fill="#101010" stroke="#2b2b2b"/>
-  <text x="104" y="122" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="74" font-weight="700">Text Codex from Telegram.</text>
-  <text x="108" y="178" fill="#b8b8b8" font-family="Arial, sans-serif" font-size="28">Your Mac runs the local Codex CLI.</text>
+  <text x="104" y="122" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="74" font-weight="700">Text your Mac. Codex works.</text>
+  <text x="108" y="178" fill="#b8b8b8" font-family="Arial, sans-serif" font-size="28">Telegram is the remote. Your Mac runs local Codex.</text>
   <text x="108" y="226" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="28">No VNC. No extra hosted relay server.</text>
 
   <g transform="translate(108 280)">
@@ -128,7 +128,7 @@ write_frame() {
     <circle cx="32" cy="24" r="7" fill="#ef4444"/>
     <circle cx="56" cy="24" r="7" fill="#f59e0b"/>
     <circle cx="80" cy="24" r="7" fill="#22c55e"/>
-    <text x="34" y="96" fill="#a7f3d0" font-family="Menlo, monospace" font-size="19">$ mac: codex exec</text>
+    <text x="34" y="96" fill="#a7f3d0" font-family="Menlo, monospace" font-size="19">$ codex exec</text>
     <text x="34" y="148" fill="#f5f5f5" font-family="Menlo, monospace" font-size="19">$mac_a</text>
     <text x="34" y="194" fill="#f5f5f5" font-family="Menlo, monospace" font-size="19">$mac_b</text>
     <text x="34" y="240" fill="#f5f5f5" font-family="Menlo, monospace" font-size="19">$mac_c</text>
@@ -151,8 +151,8 @@ render_svg "$SOCIAL" "$SOCIAL_PNG"
 
 write_frame "$TMP/frame1.svg" \
   "CODEX RELAY" \
-  "Telegram is the remote." \
-  "The Mac still runs local Codex. No tiny desktop." \
+  "Text your Mac. Codex works." \
+  "Telegram is the remote. The Mac still runs local Codex." \
   "make repo launch-ready" \
   "job 8f31c2a0" \
   "read repo state" \
@@ -160,47 +160,91 @@ write_frame "$TMP/frame1.svg" \
   "reply when finished"
 
 write_frame "$TMP/frame2.svg" \
-  "REAL WORK" \
-  "Ask for the screen." \
-  "No VNC. Telegram gets a current Mac screenshot." \
-  "/screenshot" \
-  "Mac screen sent" \
-  "capture local screen" \
-  "send photo to Telegram" \
-  "stay on the phone"
-
-write_frame "$TMP/frame3.svg" \
-  "SCREENSHOTS" \
-  "Send an image. Ask the Mac." \
-  "Telegram photos become private Codex image inputs." \
-  "sent screenshot" \
-  "image attached" \
-  "save private attachment" \
-  "pass with --image" \
-  "no raw prompt logs"
-
-write_frame "$TMP/frame4.svg" \
-  "INSTALL" \
-  "One small local bridge." \
-  "Redacted bot token, allowlist, LaunchAgent. No web app server." \
+  "INSTALL ONCE" \
+  "A small local bridge." \
+  "Redacted bot token, allowlist, LaunchAgent, doctor check." \
   "git clone" \
   "./scripts/install.sh" \
-  "doctor passed" \
-  "native menu bar" \
+  "verify bot token" \
+  "allowlist your DM" \
+  "start LaunchAgent"
+
+write_frame "$TMP/frame3.svg" \
+  "FIRST CHECK" \
+  "The phone sees the Mac." \
+  "Fast commands prove the bridge before a long Codex run." \
+  "/alive" \
+  "Mac is live" \
+  "route is healthy" \
+  "model is configured" \
+  "folder is known"
+
+write_frame "$TMP/frame4.svg" \
+  "REAL TASK" \
+  "Send the work." \
+  "Ask for a repo pass, a screenshot read, or a small fix." \
+  "/cd Projects/app" \
+  "active folder set" \
+  "open Codex CLI" \
+  "run in that folder" \
+  "keep account context"
+
+write_frame "$TMP/frame5.svg" \
+  "MAC RUN" \
+  "Codex works locally." \
+  "Files, tools, sandbox, and approvals stay on the Mac." \
+  "make this shippable" \
+  "working..." \
+  "inspect files" \
+  "edit and test" \
+  "summarize result"
+
+write_frame "$TMP/frame6.svg" \
+  "SCREENSHOTS" \
+  "Ask what changed." \
+  "Telegram images become private Codex image inputs." \
+  "sent screenshot" \
+  "image attached" \
+  "save privately" \
+  "pass with image" \
+  "prune later"
+
+write_frame "$TMP/frame7.svg" \
+  "BOUNDARY" \
+  "It says where it stops." \
+  "No official claims. No MFA bypass. No hidden hosted relay." \
+  "/policy" \
+  "limits shown" \
+  "allowlist only" \
+  "local runtime" \
+  "your Mac, your account"
+
+write_frame "$TMP/frame8.svg" \
+  "TRY IT" \
+  "Text your Mac. Codex works." \
+  "The first install path is the product." \
+  "install feedback" \
+  "first blocker?" \
+  "run fresh clone test" \
+  "open feedback issue" \
   "github.com/dicnunz/codex-relay"
 
-for i in 1 2 3 4; do
+for i in 1 2 3 4 5 6 7 8; do
   render_svg "$TMP/frame$i.svg" "$TMP/frame$i.png"
 done
 
 cp "$TMP/frame1.png" "$POSTER"
 
 ffmpeg -y -v error \
-  -loop 1 -t 3.4 -i "$TMP/frame1.png" \
-  -loop 1 -t 3.6 -i "$TMP/frame2.png" \
-  -loop 1 -t 3.8 -i "$TMP/frame3.png" \
-  -loop 1 -t 4.2 -i "$TMP/frame4.png" \
-  -filter_complex "[0:v]fps=30,fade=t=out:st=3.15:d=0.25[v0];[1:v]fps=30,fade=t=in:st=0:d=0.2,fade=t=out:st=3.35:d=0.25[v1];[2:v]fps=30,fade=t=in:st=0:d=0.2,fade=t=out:st=3.55:d=0.25[v2];[3:v]fps=30,fade=t=in:st=0:d=0.2[v3];[v0][v1][v2][v3]concat=n=4:v=1:a=0,format=yuv420p[v]" \
+  -loop 1 -t 6.0 -i "$TMP/frame1.png" \
+  -loop 1 -t 6.2 -i "$TMP/frame2.png" \
+  -loop 1 -t 6.0 -i "$TMP/frame3.png" \
+  -loop 1 -t 6.8 -i "$TMP/frame4.png" \
+  -loop 1 -t 7.0 -i "$TMP/frame5.png" \
+  -loop 1 -t 6.4 -i "$TMP/frame6.png" \
+  -loop 1 -t 6.8 -i "$TMP/frame7.png" \
+  -loop 1 -t 6.8 -i "$TMP/frame8.png" \
+  -filter_complex "[0:v]fps=30,fade=t=out:st=5.75:d=0.25[v0];[1:v]fps=30,fade=t=in:st=0:d=0.2,fade=t=out:st=5.95:d=0.25[v1];[2:v]fps=30,fade=t=in:st=0:d=0.2,fade=t=out:st=5.75:d=0.25[v2];[3:v]fps=30,fade=t=in:st=0:d=0.2,fade=t=out:st=6.55:d=0.25[v3];[4:v]fps=30,fade=t=in:st=0:d=0.2,fade=t=out:st=6.75:d=0.25[v4];[5:v]fps=30,fade=t=in:st=0:d=0.2,fade=t=out:st=6.15:d=0.25[v5];[6:v]fps=30,fade=t=in:st=0:d=0.2,fade=t=out:st=6.55:d=0.25[v6];[7:v]fps=30,fade=t=in:st=0:d=0.2[v7];[v0][v1][v2][v3][v4][v5][v6][v7]concat=n=8:v=1:a=0,format=yuv420p[v]" \
   -map "[v]" -c:v libx264 -preset veryfast -crf 18 -movflags +faststart "$OUT"
 
 echo "wrote $SOCIAL"

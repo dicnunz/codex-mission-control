@@ -1,0 +1,58 @@
+name: "Install feedback"
+description: "Report the first blocker you hit while trying Codex Relay."
+title: "[install feedback]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying Codex Relay.
+
+        Do not paste bot tokens, `.env`, private screenshots, personal files, raw Codex transcripts, or unredacted logs.
+  - type: input
+    id: mac
+    attributes:
+      label: "Mac and macOS"
+      description: "Example: M2 MacBook Air, macOS 15.4."
+    validations:
+      required: true
+  - type: input
+    id: codex
+    attributes:
+      label: "Codex app or CLI state"
+      description: "Was the Codex Mac app installed and signed in before install?"
+    validations:
+      required: true
+  - type: checkboxes
+    id: commands
+    attributes:
+      label: "Commands tried"
+      options:
+        - label: "./scripts/install.sh"
+        - label: "/alive"
+        - label: "/health"
+        - label: "/policy"
+        - label: "/screenshot"
+        - label: "A normal task message"
+  - type: textarea
+    id: blocker
+    attributes:
+      label: "First blocker"
+      description: "What was the first confusing, broken, slow, or surprising part?"
+      placeholder: "The installer stopped at..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Expected result"
+      description: "What did you expect to happen instead?"
+    validations:
+      required: false
+  - type: textarea
+    id: redacted-output
+    attributes:
+      label: "Redacted output"
+      description: "Paste only short, redacted terminal output if it is useful."
+      render: text
+    validations:
+      required: false

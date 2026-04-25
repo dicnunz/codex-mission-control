@@ -4,15 +4,17 @@
 
 **Text your Mac. Codex works.**
 
-<p align="center">
-  <img src="assets/generated/codex-relay-hero.png" alt="Minimal phone-to-Mac relay visual" width="100%">
-</p>
-
 A Telegram DM becomes a local Codex run on your Mac. The phone is the remote. The Mac keeps the files, tools, apps, sandbox, and account context. When Codex finishes, the answer comes back to Telegram.
 
 No web dashboard. No hosted relay account. No screen mirror.
 
-[Watch the explainer](assets/codex-relay-demo.mp4) · [Install](#install) · [Security](#security) · [Demo without secrets](#demo-without-secrets)
+<p align="center">
+  <a href="assets/codex-relay-demo.mp4">
+    <img src="assets/codex-relay-demo-poster.png" alt="Codex Relay demo poster" width="100%">
+  </a>
+</p>
+
+**Watch first:** [52-second demo](assets/codex-relay-demo.mp4) · [Install](#install) · [Try it and report the first blocker](docs/builder-feedback.md) · [Security](#security)
 
 > Unofficial project. Not affiliated with OpenAI or Telegram.
 
@@ -79,13 +81,11 @@ Run the no-token path from a clean checkout:
 ./scripts/fresh_clone_test.sh
 ```
 
-The demo proves the repo can run its smoke path without a Telegram token, local `.env`, or private runtime state.
+The demo proves the repo can run its smoke path without a Telegram token, local `.env`, or private runtime state. Regenerate the sanitized launch video with:
 
-<p align="center">
-  <a href="assets/codex-relay-demo.mp4">
-    <img src="assets/codex-relay-demo-poster.png" alt="Codex Relay demo poster" width="760">
-  </a>
-</p>
+```bash
+./scripts/record_demo.sh
+```
 
 <p align="center">
   <img src="assets/demo-transcript.svg" alt="Codex Relay Telegram transcript" width="760">
@@ -120,6 +120,18 @@ The demo proves the repo can run its smoke path without a Telegram token, local 
 ```
 
 Normal messages go to the active thread. Captions on Telegram images become the prompt; image files are saved privately and attached to Codex.
+
+## Try It
+
+I am looking for 10 real Mac/Codex users to try the first install path and report the first blocker.
+
+Open the feedback form after a real attempt:
+
+```text
+https://github.com/dicnunz/codex-relay/issues/new?template=install-feedback.yml
+```
+
+The ask is simple: install it, run `/alive`, `/health`, `/policy`, `/screenshot`, try one safe local task, and report what was confusing or broken. Do not paste bot tokens, `.env`, private screenshots, personal files, raw Codex transcripts, or unredacted logs.
 
 ## What It Is Not
 
