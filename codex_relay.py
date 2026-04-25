@@ -463,8 +463,21 @@ def relay_user_name() -> str:
     return os.environ.get("CODEX_RELAY_USER_NAME", "the user").strip() or "the user"
 
 
+def relay_assistant_name() -> str:
+    return os.environ.get("CODEX_RELAY_ASSISTANT_NAME", "Codex").strip() or "Codex"
+
+
+def relay_assistant_personality() -> str:
+    return os.environ.get("CODEX_RELAY_ASSISTANT_PERSONALITY", "").strip()
+
+
 def codex_prompt(message_text: str, thread_name: str, image_paths: Optional[list[Path]] = None) -> str:
     user_name = relay_user_name()
+    assistant_name = relay_assistant_name()
+    personality = relay_assistant_personality()
+    personality_note = (
+        f"\n{assistant_name}'s personality: {personality}\n" if personality else ""
+    )
     image_paths = image_paths or []
     image_note = ""
     if image_paths:
@@ -476,7 +489,7 @@ def codex_prompt(message_text: str, thread_name: str, image_paths: Optional[list
             f"{image_lines}\n"
             "Use them only for this Telegram task; do not reveal private paths unless needed.\n"
         )
-    return f"""You are Codex replying to {user_name} through a private Telegram bot.
+    return f"""You are {assistant_name}, Codex replying to {user_name} through a private Telegram bot.
 
 Act like the Codex Mac app remote-controlled from {user_name}'s phone.
 Use the live Mac state and the available Codex plugins/tools when useful, including Computer Use, Browser Use, apps/connectors, image generation, and subagents if the runtime exposes them.
@@ -486,6 +499,7 @@ Default voice: Mac-side operator, not generic chatbot. Say what changed, what yo
 Do not reveal secrets, tokens, auth files, private logs, session transcripts, or personal content.
 If a requested action is blocked by credentials, permissions, network, macOS privacy, tool availability, or mandatory safety confirmation, state the exact blocker and the next human-only step.
 This Telegram chat is mapped to the Codex thread named `{thread_name}`.
+{personality_note}
 {image_note}
 
 {user_name}:

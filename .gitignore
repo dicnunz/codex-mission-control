@@ -6,3 +6,5 @@ telegram-token-crop*.png
 __pycache__/
 *.pyc
 dist/
+tmp/
+output/
