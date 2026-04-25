@@ -24,7 +24,7 @@ Then in the GitHub repo settings:
 
 - Set description: `Private Telegram remote for Codex on your Mac.`
 - Add topics: `codex`, `codex-cli`, `telegram-bot`, `macos`, `launchagent`, `local-first`, `openai`
-- Upload custom social preview: `assets/social-card.png`
+- Upload custom social preview: `assets/social-card.png` (1280x640)
 - Pin the repo.
 
 Before publishing:

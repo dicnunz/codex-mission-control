@@ -25,6 +25,7 @@ jobs:
           cp assets/codex-relay-demo.mp4 "$RUNNER_TEMP/codex-relay-demo-before.mp4"
           ./scripts/record_demo.sh
           git diff --exit-code -- assets/social-card.svg assets/social-card.png assets/demo-transcript.svg assets/codex-relay-demo-poster.png
+          test "$(sips -g pixelWidth -g pixelHeight assets/social-card.png | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w "x" h}')" = "1280x640"
           test "$(ffprobe -v error -show_entries stream=width,height -of csv=p=0:s=x assets/codex-relay-demo.mp4 | head -n1)" = "1280x720"
           test "$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 assets/codex-relay-demo.mp4)" = "15.000000"
           ffmpeg -i "$RUNNER_TEMP/codex-relay-demo-before.mp4" -i assets/codex-relay-demo.mp4 -lavfi "[0:v][1:v]ssim" -f null - 2> "$RUNNER_TEMP/demo-ssim.log"
