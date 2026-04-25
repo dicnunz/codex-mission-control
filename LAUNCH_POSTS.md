@@ -2,15 +2,15 @@
 
 ## X Short
 
-I built Codex Relay.
+I left my Mac open on my desk and controlled Codex from Telegram.
 
-It lets me text Codex from Telegram and have my Mac do the work locally.
+So I built Codex Relay.
 
-Mac open on desk. Me on phone. Telegram -> Codex CLI -> Computer Use/apps/files/repos.
+Text your bot. Your Mac runs the real Codex CLI locally with files, repos, apps, and Computer Use.
 
-Private, local, `gpt-5.5`, LaunchAgent, named threads.
+Private. Local. `gpt-5.5`. LaunchAgent. Named threads.
 
-GitHub: https://github.com/YOUR_USERNAME/codex-relay
+GitHub: https://github.com/dicnunz/codex-relay
 
 ## X Thread
 
@@ -30,4 +30,13 @@ It supports named threads, per-thread folders, `/status`, `/tools`, and `gpt-5.5
 
 The setup script detects Codex, asks for a BotFather token, waits for your `/start`, allow-lists your Telegram user, and installs the background agent.
 
-GitHub: https://github.com/YOUR_USERNAME/codex-relay
+GitHub: https://github.com/dicnunz/codex-relay
+
+## Launch Checklist
+
+- Post the 30-second screen recording first.
+- First frame must show Telegram on phone, Mac in background, and the phrase "Codex from Telegram".
+- Reply immediately with the GitHub link and install commands.
+- Pin the repo and add the social-card image.
+- Do not over-explain safety in the first post; put safety in README and replies.
+- Say "unofficial" plainly when asked.

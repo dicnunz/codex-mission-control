@@ -2,28 +2,30 @@
 
 Run Codex on your Mac from Telegram.
 
+<p align="center">
+  <img src="assets/social-card.svg" alt="Codex Relay: Telegram to Codex CLI to your Mac" width="100%">
+</p>
+
 Codex Relay is a private phone remote for the Codex Mac app runtime. DM your Telegram bot and your Mac runs a real local `codex exec` session with your files, repos, apps, plugins, and Computer Use access.
 
 No hosted middleman. No fake agent shell. Telegram -> Codex CLI -> your Mac.
 
 > Unofficial project. Not affiliated with OpenAI or Telegram.
 
-## The Demo
+## 10-Second Demo
 
 Leave your Mac open and awake. From your phone:
 
 ```text
-/new school
-go on Atlas and check what assignments are due
-
-/new portfolio
-/cd Projects/my-site
-make this repo look better to recruiters
-
 /tools
+go on Atlas and check what assignments are due
 ```
 
 Codex works locally on the Mac and replies in Telegram.
+
+<p align="center">
+  <img src="assets/demo-transcript.svg" alt="Example Telegram transcript controlling Codex Relay" width="760">
+</p>
 
 ## What You Get
 
@@ -44,7 +46,7 @@ Requirements:
 - Telegram account
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/codex-relay.git
+git clone https://github.com/dicnunz/codex-relay.git
 cd codex-relay
 ./scripts/install.sh
 ```
@@ -65,6 +67,12 @@ Then DM the bot:
 ```text
 /status
 /tools
+```
+
+If anything feels off:
+
+```bash
+./scripts/doctor.sh
 ```
 
 ## Commands
@@ -95,6 +103,7 @@ Set up this repo for me. Run ./scripts/install.sh, help me create the Telegram b
 ## Manage It
 
 ```bash
+./scripts/doctor.sh
 ./scripts/status.sh
 ./scripts/uninstall.sh
 ```
@@ -126,3 +135,9 @@ Use it only with a Telegram account and Mac you trust.
 - It does not mirror the visible Codex desktop chat UI.
 - It cannot bypass site logins, macOS privacy, or mandatory confirmations.
 - Computer Use and plugin access depend on what your local Codex runtime exposes.
+
+## Why Not A Generic Agent Platform
+
+Codex Relay is deliberately narrow. It does one thing: make Telegram feel like a remote control for the Codex runtime already on your Mac.
+
+That narrowness is the point. It is easy to inspect, easy to stop, and easy to explain in one video.
