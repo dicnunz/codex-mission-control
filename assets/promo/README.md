@@ -12,6 +12,11 @@ https://github.com/dicnunz/codex-relay#readme
 
 | File | Caption |
 | --- | --- |
+| `promo-phone-remote.png` | Phone remote. Not phone desktop. |
+| `promo-bed-to-mac.png` | This is for when the Mac is open and you are not at it. |
+| `promo-local-run.png` | The Mac does the run. Telegram carries the request and reply. |
+| `promo-install-commands.png` | Clone. Install. DM your bot. |
+| `promo-what-not.png` | The distinction matters. |
 | `promo-hero.png` | I made the missing phone remote for Codex on my Mac. |
 | `promo-flow.png` | The whole thing is just this small local loop. |
 | `promo-no-vnc.png` | I did not want a tiny desktop on my phone. I wanted task-level control. |

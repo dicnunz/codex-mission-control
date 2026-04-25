@@ -2,7 +2,7 @@
 
 Use this order. Keep each post visually quiet and concrete.
 
-Main link:
+Main link for replies only:
 
 ```text
 https://github.com/dicnunz/codex-relay#readme
@@ -10,69 +10,57 @@ https://github.com/dicnunz/codex-relay#readme
 
 ## 1. Main Post
 
-Attach: `assets/codex-relay-demo.mp4`
+Attach strongest available visual:
+
+1. `assets/codex-relay-demo.mp4`
+2. `assets/promo/promo-phone-remote.png`
+3. `assets/promo/promo-hero.png`
 
 ```text
-I wanted Codex from my phone without VNC, so I built a small local remote.
+Codex on my Mac, from my phone.
 
-Telegram DM -> LaunchAgent -> Codex CLI on my Mac -> Telegram reply.
-
-No hosted relay. No tiny desktop. The Mac does the work.
-
-https://github.com/dicnunz/codex-relay#readme
+Not VNC.
+Not a hosted agent platform.
+Just a Telegram remote into the Codex CLI already running locally.
 ```
 
-## 2. Install Reply
+No URL in the main post.
+
+## 2. Link Reply
 
 ```text
-Install:
+repo:
+github.com/dicnunz/codex-relay#readme
 
+install:
 git clone https://github.com/dicnunz/codex-relay.git
 cd codex-relay
 ./scripts/install.sh
-
-Then DM your bot:
-/alive
-/health
-/policy
-/screenshot
-/tools
-/latency
-/jobs
-/automations
-
-Unofficial. Local-first. Uses your normal Codex/OpenAI account.
 ```
 
 ## 3. Proof Reply
 
-Attach: `assets/promo/promo-flow.png`
+Attach: `assets/promo/promo-local-run.png` or `assets/promo/promo-flow.png`
 
 ```text
-The whole loop is intentionally small:
+The shape is the point:
 
-Telegram DM -> local LaunchAgent -> Codex CLI -> your Mac -> Telegram reply.
+Telegram DM -> LaunchAgent -> Codex CLI -> Mac -> Telegram reply.
 ```
 
-## 4. Latency Reply
+## 4. Safety Reply
 
 ```text
-Latency is basically a local Codex run plus Telegram.
-
-Bridge/status commands are quick. Real repo, browser, image, and tool tasks usually take tens of seconds or more.
-```
-
-## 5. Safety Reply
-
-```text
-Boundary:
+Unofficial. Local-first.
 
 Only your configured Telegram user/chat can call it.
 Token/config stay local.
-/policy shows where it stops before public, account, payment, delete, or confirmation-sensitive actions.
+It stops before public/account/payment/delete/confirmation-sensitive actions.
 ```
 
-## 6. VNC/PWA Reply
+## 5. VNC/PWA Reply
+
+Attach: `assets/promo/promo-no-vnc.png`
 
 ```text
 VNC/PWA/app-server setups can work.
@@ -82,10 +70,34 @@ I wanted the smaller shape: text the task, let the Mac run local Codex, get the 
 No tiny desktop. No web service to maintain.
 ```
 
-## 7. Visual Followups
+## 6. Latency Reply
+
+```text
+Latency is basically a local Codex run plus Telegram.
+
+Bridge/status commands are quick. Real repo, browser, image, and tool tasks usually take tens of seconds or more.
+```
+
+## 7. Targeted Reply
+
+```text
+I wanted this exact thing, so I made the local version.
+
+Telegram DM -> LaunchAgent -> Codex CLI on your Mac -> Telegram reply.
+
+Not official, not VNC, not hosted.
+```
+
+Only include the repo link in a follow-up reply if someone asks.
+
+## 8. Visual Followups
 
 Use one per post, not all at once:
 
+- `assets/promo/promo-phone-remote.png`: `Phone remote. Not phone desktop.`
+- `assets/promo/promo-bed-to-mac.png`: `This is for when the Mac is open and you are not at it.`
+- `assets/promo/promo-local-run.png`: `The Mac does the run. Telegram carries the request and reply.`
+- `assets/promo/promo-install-commands.png`: `Clone. Install. DM your bot.`
 - `assets/promo/promo-hero.png`: `I made the missing phone remote for Codex on my Mac.`
 - `assets/promo/promo-no-vnc.png`: `I did not want a tiny desktop on my phone. I wanted task-level control.`
 - `assets/promo/promo-install.png`: `Install is basically clone, run, DM your bot.`
