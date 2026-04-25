@@ -56,16 +56,58 @@ It is a small Mac relay: Telegram DM in, local LaunchAgent runs Codex CLI, Teleg
 Same latency as a local Codex run, plus Telegram. Bridge/status commands are quick; real repo, browser, image, and tool tasks usually take tens of seconds or more.
 ```
 
-## Thread Reply
+## VNC/PWA Reply
 
 ```text
-Yeah, I wanted the phone path without VNC or maintaining a web app. I made a small local relay: Telegram DM -> LaunchAgent -> installed Codex CLI on the Mac -> Telegram reply when Codex finishes. Unofficial/local-first: github.com/dicnunz/codex-relay#readme
+Yeah, VNC/PWA/app-server can work.
+
+I wanted the smaller shape: text the task, let the Mac run local Codex, get the final reply back.
+
+No tiny desktop. No hosted relay to maintain.
 ```
 
 ## Safety Reply
 
 ```text
 The important boundary is the allowlist plus `/policy`. Only the configured Telegram user/chat can call Codex, the bot token/config stay local, and the bot says where it stops before public, account, payment, delete, or confirmation-sensitive actions.
+```
+
+## Casual iOS Reply
+
+```text
+I wanted this too, so I made a local version:
+
+Telegram DM -> LaunchAgent -> Codex CLI on your Mac -> Telegram reply.
+
+Not official, not VNC, not hosted. Just a small remote for the Mac you already use.
+
+github.com/dicnunz/codex-relay#readme
+```
+
+## Promo Captions
+
+```text
+I made the missing phone remote for Codex on my Mac.
+```
+
+```text
+The whole thing is just this small local loop.
+```
+
+```text
+I did not want a tiny desktop on my phone. I wanted task-level control.
+```
+
+```text
+Install is basically clone, run, DM your bot.
+```
+
+```text
+This is for the "my Mac is on my desk and I'm not" workflow.
+```
+
+```text
+The distinction matters.
 ```
 
 ## Checklist
@@ -76,3 +118,4 @@ The important boundary is the allowlist plus `/policy`. Only the configured Tele
 - Keep the latency reply nearby.
 - Say plainly that it is unofficial and local-first.
 - Do not imply OpenAI affiliation.
+- Stop before every public X submit action and ask final confirmation.

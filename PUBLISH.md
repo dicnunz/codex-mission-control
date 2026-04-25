@@ -96,6 +96,7 @@ Those can work. Codex Relay is the smaller shape when you want task-level Codex 
 - Poster: `assets/codex-relay-demo-poster.png`
 - Social preview: `assets/social-card.png`
 - README transcript: `assets/demo-transcript.svg`
+- Promo images: `assets/promo/`
 - Local status page: `./scripts/status_ui.sh`
 - Native menu bar: `./scripts/menu_bar.sh`
 
@@ -121,6 +122,16 @@ Images, screenshots, policy, jobs/cancel/history, brief/verbose modes, latency/s
 
 github.com/dicnunz/codex-relay#readme
 ```
+
+Supporting visual captions:
+
+- `promo-hero.png`: `I made the missing phone remote for Codex on my Mac.`
+- `promo-flow.png`: `The whole thing is just this small local loop.`
+- `promo-no-vnc.png`: `I did not want a tiny desktop on my phone. I wanted task-level control.`
+- `promo-install.png`: `Install is basically clone, run, DM your bot.`
+- `promo-proof.png`: `This is for the "my Mac is on my desk and I'm not" workflow.`
+- `promo-what-it-is.png`: `The distinction matters.`
+- `promo-square-icon.png`: avatar/social icon candidate only.
 
 ## Human-Only Boundary
 
