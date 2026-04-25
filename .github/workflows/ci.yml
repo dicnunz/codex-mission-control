@@ -23,7 +23,8 @@ jobs:
         run: |
           brew install ffmpeg
           ./scripts/record_demo.sh
-          git diff --exit-code -- assets/social-card.svg assets/social-card.png assets/demo-transcript.svg assets/codex-relay-demo.mp4 assets/codex-relay-demo-poster.png
+          git diff --exit-code -- assets/social-card.svg assets/social-card.png assets/demo-transcript.svg assets/codex-relay-demo-poster.png
           test "$(ffprobe -v error -show_entries stream=width,height -of csv=p=0:s=x assets/codex-relay-demo.mp4 | head -n1)" = "1280x720"
+          test "$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 assets/codex-relay-demo.mp4)" = "15.000000"
       - name: Fresh clone path
         run: PYTHONDONTWRITEBYTECODE=1 ./scripts/fresh_clone_test.sh
