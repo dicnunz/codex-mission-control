@@ -17,21 +17,23 @@ Then in the GitHub repo settings:
 
 ## X Launch
 
-Post the video first, not the repo link first.
-
 Use `assets/codex-relay-demo.mp4` as the video.
 
-Use the short post from `LAUNCH_POSTS.md`, then immediately reply with:
+Use the primary post from `LAUNCH_POSTS.md`, then immediately reply with:
 
 ```text
-GitHub: https://github.com/dicnunz/codex-relay
-
 Install:
+
 git clone https://github.com/dicnunz/codex-relay.git
 cd codex-relay
 ./scripts/install.sh
+
+Then DM your bot:
+/alive
+/tools
+send a screenshot and ask what broke
 ```
 
 ## Human-Only Boundary
 
-Publishing the repo and posting on X are public actions. Do them only when the demo video is ready.
+Posting on X is public. Do it only after the demo video, repo, and post text are final.

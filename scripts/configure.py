@@ -50,6 +50,9 @@ def save_env(values: dict[str, str]) -> None:
         "CODEX_TELEGRAM_SANDBOX",
         "CODEX_TELEGRAM_MODEL",
         "CODEX_TELEGRAM_APPROVAL",
+        "CODEX_TELEGRAM_TIMEOUT_SECONDS",
+        "CODEX_TELEGRAM_MAX_IMAGE_BYTES",
+        "CODEX_TELEGRAM_IMAGE_RETENTION_DAYS",
     ]
     lines = ["# Codex Relay private config. Do not commit this file."]
     for key in ordered:
@@ -141,6 +144,9 @@ def main() -> int:
             "CODEX_TELEGRAM_SANDBOX": values.get("CODEX_TELEGRAM_SANDBOX") or "danger-full-access",
             "CODEX_TELEGRAM_MODEL": values.get("CODEX_TELEGRAM_MODEL") or "gpt-5.5",
             "CODEX_TELEGRAM_APPROVAL": values.get("CODEX_TELEGRAM_APPROVAL") or "never",
+            "CODEX_TELEGRAM_TIMEOUT_SECONDS": values.get("CODEX_TELEGRAM_TIMEOUT_SECONDS") or "600",
+            "CODEX_TELEGRAM_MAX_IMAGE_BYTES": values.get("CODEX_TELEGRAM_MAX_IMAGE_BYTES") or "20971520",
+            "CODEX_TELEGRAM_IMAGE_RETENTION_DAYS": values.get("CODEX_TELEGRAM_IMAGE_RETENTION_DAYS") or "7",
         }
     )
     save_env(values)

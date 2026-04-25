@@ -1,34 +1,39 @@
 # Positioning
 
-Codex Relay should be sold as a narrow, real remote for Codex, not a generic agent platform.
-
 ## One-Line Pitch
 
-Text Codex from Telegram and your Mac does the work locally.
+Telegram remote for Codex on your Mac.
 
-## What Makes It Shareable
+## Product Truth
 
-- The phone is the command surface.
-- The Mac visibly does real work.
-- It uses the Codex runtime people already want.
-- It is small enough to understand in one minute.
-- The setup is honest: BotFather token, `/start`, LaunchAgent.
+- Telegram is the remote.
+- Codex is the engine.
+- The Mac does the work.
+- The repo is small enough to inspect.
+- Setup is honest: BotFather token, `/start`, allowlist, LaunchAgent.
 
-## What Not To Claim
+## Why It Can Travel
 
-- Do not claim it is official OpenAI.
-- Do not claim it bypasses Codex limits.
-- Do not claim it mirrors the visible Codex app thread.
-- Do not claim zero human setup; Telegram bot creation is a credential step.
+Most agent demos are abstract. This one is obvious: you are on your phone, your laptop is across the room, and Codex still has hands on the Mac.
 
-## Best Demo Angle
+## Do Not Claim
 
-The hook is not "Telegram bot." The hook is:
+- Official OpenAI project.
+- A Codex app UI mirror.
+- Unlimited model usage.
+- Zero setup.
+- Bypassing confirmations, logins, MFA, or macOS privacy.
+- Generic OpenClaw replacement.
+
+## Best Demo
+
+Show:
 
 ```text
-I left my Mac open on my desk and controlled Codex from bed.
+/alive
+send screenshot: "what broke?"
+/tools
+one real Mac/repo task
 ```
 
-The first video should show `/tools`, then one real Mac task, then the GitHub install command.
-
-The first actual use should show `/alive`, `/tools`, and `/try`. That gives the product a clear pulse before it starts doing work.
+Then stop. The product is strongest when it looks simple.

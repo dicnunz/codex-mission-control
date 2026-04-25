@@ -1,42 +1,51 @@
 # Launch Posts
 
-## X Short
+## Primary X Post
 
-I left my Mac open on my desk and controlled Codex from Telegram.
+```text
+I built a Telegram remote for Codex on your Mac.
 
-So I built Codex Relay.
+Text the bot. Your Mac runs the real Codex CLI locally and replies back.
 
-Text your bot. Your Mac runs the real Codex CLI locally with files, repos, apps, and Computer Use.
+No hosted relay. No new agent platform.
 
-Private. Local. `gpt-5.5`. LaunchAgent. Named threads.
+https://github.com/dicnunz/codex-relay
+```
 
-GitHub: https://github.com/dicnunz/codex-relay
+Attach: `assets/codex-relay-demo.mp4`
 
-## X Thread
+## Alternate Short
 
-I made my Mac feel remotely alive from Telegram.
+```text
+Codex Relay turns Telegram into a remote for Codex on your Mac.
 
-Codex Relay is a private phone remote for Codex on macOS.
+Your phone sends the task.
+Your Mac runs Codex locally.
+Telegram gets the answer back.
 
-Leave the laptop open, DM your bot, and Codex runs locally with your files, repos, apps, plugins, and Computer Use.
+https://github.com/dicnunz/codex-relay
+```
 
-It is not a hosted service or wrapper around another agent framework.
+## First Reply
 
-The flow is:
+```text
+Install:
 
-Telegram -> local LaunchAgent -> Codex CLI -> your Mac
+git clone https://github.com/dicnunz/codex-relay.git
+cd codex-relay
+./scripts/install.sh
 
-It supports named threads, per-thread folders, `/status`, `/tools`, and `gpt-5.5` by default.
-
-The setup script detects Codex, asks for a BotFather token, waits for your `/start`, allow-lists your Telegram user, and installs the background agent.
-
-GitHub: https://github.com/dicnunz/codex-relay
+Then DM your bot:
+/alive
+/tools
+send a screenshot and ask what broke
+```
 
 ## Launch Checklist
 
-- Post the 30-second screen recording first.
-- First frame must show Telegram on phone, Mac in background, and the phrase "Codex from Telegram".
-- Reply immediately with the GitHub link and install commands.
-- Pin the repo and add the social-card image.
-- Do not over-explain safety in the first post; put safety in README and replies.
-- Say "unofficial" plainly when asked.
+- Use the generated demo video, not a raw UI accident.
+- First frame must make the flow obvious: Telegram -> Codex CLI -> Mac.
+- Keep the post plain. No "alive", "AGI", or fake autonomy language.
+- Reply with install commands.
+- Pin the repo after posting.
+- If asked, say plainly that it is unofficial and local-first.

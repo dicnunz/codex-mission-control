@@ -1,48 +1,49 @@
 # Codex Relay
 
-Run Codex on your Mac from Telegram.
+Telegram remote for Codex on your Mac.
 
 <p align="center">
-  <img src="assets/social-card.svg" alt="Codex Relay: Telegram to Codex CLI to your Mac" width="100%">
+  <img src="assets/social-card.svg" alt="Codex Relay: Telegram remote for Codex on your Mac" width="100%">
 </p>
 
-Codex Relay is a private phone remote for the Codex Mac app runtime. DM your Telegram bot and your Mac runs a real local `codex exec` session with your files, repos, apps, plugins, and Computer Use access.
+Text your bot. Your Mac runs the real Codex CLI locally and replies in Telegram.
 
-No hosted middleman. No fake agent shell. Telegram -> Codex CLI -> your Mac.
+That is the whole product: Telegram is the remote, Codex is the engine, your Mac is the computer doing the work.
 
 > Unofficial project. Not affiliated with OpenAI or Telegram.
 
-## 10-Second Demo
+## Demo
 
-[Watch the launch demo](assets/codex-relay-demo.mp4)
+[Watch the demo](assets/codex-relay-demo.mp4)
 
 <p align="center">
-  <img src="assets/codex-relay-demo-poster.png" alt="Codex Relay launch demo poster" width="760">
+  <img src="assets/codex-relay-demo-poster.png" alt="Codex Relay demo poster" width="760">
 </p>
-
-Leave your Mac open and awake. From your phone:
 
 ```text
+/alive
 /tools
-go on Atlas and check what assignments are due
+send a screenshot and ask what broke
+open Atlas and check what is due
+make this repo launch-ready
 ```
 
-Codex works locally on the Mac and replies in Telegram.
+Codex Relay keeps a small local bridge alive with a macOS LaunchAgent. When you message Telegram, the bridge calls the Codex app CLI on your Mac with your configured model, folder, sandbox, tools, and image attachments.
 
 <p align="center">
-  <img src="assets/demo-transcript.svg" alt="Example Telegram transcript controlling Codex Relay" width="760">
+  <img src="assets/demo-transcript.svg" alt="Codex Relay Telegram transcript" width="760">
 </p>
 
-## What You Get
+## What Works
 
-- `gpt-5.5` by default through the Codex Mac app CLI.
+- `gpt-5.5` by default through the Codex app CLI.
 - Private Telegram bot allow-listed to your Telegram user.
-- Persistent named threads: `/new`, `/use`, `/list`.
+- Named Codex threads: `/new`, `/use`, `/list`, `/reset`.
 - Per-thread folders: `/cd`, `/where`, `/home`.
-- macOS LaunchAgent, so it stays alive after setup.
-- Tool probe for Computer Use and app visibility.
-- Subagents when your local Codex runtime exposes them.
-- Local `.env`; no cloud relay or extra agent account.
+- Telegram photos and image documents passed to Codex with `--image`.
+- Mac-side files, repos, shell, Computer Use, Browser Use, apps, and subagents when your local Codex runtime exposes them.
+- macOS LaunchAgent so the relay stays running after setup.
+- Local config only. No hosted relay account.
 
 ## Install
 
@@ -58,80 +59,41 @@ cd codex-relay
 ./scripts/install.sh
 ```
 
-The installer handles the Mac side. The only human credential step is creating a Telegram bot with `@BotFather` and pasting the token.
+The installer:
 
-Setup flow:
+1. Finds the Codex app CLI.
+2. Asks for your Telegram bot token.
+3. Verifies the bot with Telegram.
+4. Waits for you to send `/start`.
+5. Allow-lists your Telegram user.
+6. Installs and starts the LaunchAgent.
 
-1. Detect the Codex Mac app CLI.
-2. Ask for your Telegram bot token.
-3. Verify the bot with Telegram.
-4. Wait for you to send `/start` to the bot.
-5. Allow-list that Telegram user.
-6. Install and start the LaunchAgent.
-
-Then DM the bot:
-
-```text
-/alive
-/status
-/tools
-/try
-```
-
-If anything feels off:
-
-```bash
-./scripts/doctor.sh
-```
+The only manual credential step is creating a bot with `@BotFather` and pasting its token.
 
 ## Commands
 
-Normal messages go to the active Codex thread.
-
 ```text
-/new name     start a fresh Codex thread
+/alive        live route, model, folder, uptime
+/status       current thread and runtime config
+/tools        quick Codex tool probe
+/try          useful first prompts
+/new name     new Codex thread
 /use name     switch threads
-/list         show threads
-/where        show current thread and folder
-/cd path      set this thread's folder
-/home         set this thread to your home folder
-/status       show runtime state
-/alive        show the Mac-side remote status
-/capabilities show what this remote can do
-/try          show good first prompts
-/tools        test Computer Use/tool access
-/reset        restart the current thread
-/ping         check the bridge
+/list         list threads
+/where        show active folder
+/cd path      set active folder
+/home         set folder to ~
+/reset        clear the current Codex session
+/ping         bridge check
 ```
 
-## First-Run Feel
+Normal messages go to the active thread. Captions on Telegram images become the prompt; image files are saved privately and attached to Codex.
 
-Codex Relay should feel like a Mac-side operator waiting in your pocket:
-
-```text
-/alive
-/tools
-/try
-```
-
-Then send a real task. The best demos are ordinary but concrete: check a web app, clean up a repo, inspect a folder, summarize what is open, draft a post and stop before sending.
-
-The key promise is not "another bot." It is one private chat that can reach your Mac, your Codex sessions, your repos, your apps, and your tools.
-
-## Run It Through Codex
-
-Paste this into the Codex Mac app after cloning:
-
-```text
-Set up this repo for me. Run ./scripts/install.sh, help me create the Telegram bot token if needed, then verify /status and /tools.
-```
-
-## Manage It
+## Verify
 
 ```bash
 ./scripts/doctor.sh
 ./scripts/status.sh
-./scripts/uninstall.sh
 ```
 
 Runtime files:
@@ -143,15 +105,14 @@ Runtime files:
 
 ## Safety
 
-Codex Relay is intentionally powerful: Telegram messages can make Codex act on your Mac.
+Codex Relay is intentionally powerful. If you expose your Telegram bot, you are exposing a path to Codex on your Mac.
 
 - `.env` is private and gitignored.
-- The installer copies config into a `0600` runtime file.
-- Only your allow-listed Telegram user can run Codex.
-- Default sandbox: `danger-full-access`.
-- Default approval policy: `never`.
-- High-risk actions can still hit OpenAI/Codex safety confirmations.
-- macOS privacy prompts still apply.
+- Runtime config is copied with `0600` permissions.
+- Only the allow-listed Telegram user/chat can run Codex.
+- Images are stored in the private runtime state directory and pruned by retention settings.
+- High-risk actions can still hit Codex/OpenAI/macOS confirmations.
+- It cannot bypass logins, MFA, macOS privacy prompts, site safety barriers, account limits, or mandatory confirmations.
 
 Use it only with a Telegram account and Mac you trust.
 
@@ -159,11 +120,12 @@ Use it only with a Telegram account and Mac you trust.
 
 - It uses your normal Codex/OpenAI account limits.
 - It does not mirror the visible Codex desktop chat UI.
-- It cannot bypass site logins, macOS privacy, or mandatory confirmations.
-- Computer Use and plugin access depend on what your local Codex runtime exposes.
+- It is not a generic agent platform.
+- Computer Use and plugin behavior depend on what your local Codex runtime exposes.
+- The bot will feel as capable as the Codex install on that Mac, not more.
 
-## Why Not A Generic Agent Platform
+## Why This Exists
 
-Codex Relay is deliberately narrow. It does one thing: make Telegram feel like a remote control for the Codex runtime already on your Mac.
+Codex is already useful on a Mac. Codex Relay just makes it reachable from the chat app already on your phone.
 
-That narrowness is the point. It is easy to inspect, easy to stop, and easy to explain in one video.
+Small surface. Local runtime. Real Codex.

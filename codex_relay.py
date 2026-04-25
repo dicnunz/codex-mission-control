@@ -26,9 +26,23 @@ ENV_PATH = ROOT / ".env"
 STATE_DIR_DEFAULT = ROOT / ".codex-relay-state"
 TELEGRAM_LIMIT = 4096
 DEFAULT_THREAD = "main"
-SESSION_RE = re.compile(r"session id:\s*([0-9a-fA-F-]{36})")
+DEFAULT_TIMEOUT_SECONDS = 600
+DEFAULT_MAX_IMAGE_BYTES = 20 * 1024 * 1024
+DEFAULT_IMAGE_RETENTION_DAYS = 7
+MAX_IMAGES_PER_MESSAGE = 4
+SESSION_RE = re.compile(r"session id:\s*([0-9a-fA-F-]{36})", re.IGNORECASE)
 THREAD_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,39}$")
 STARTED_AT = time.time()
+IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"}
+IMAGE_SUFFIX_BY_MIME = {
+    "image/gif": ".gif",
+    "image/heic": ".heic",
+    "image/heif": ".heif",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+}
 
 
 def load_dotenv(path: Path = ENV_PATH) -> None:
@@ -61,6 +75,15 @@ def write_private_text(path: Path, text: str) -> None:
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w") as handle:
         handle.write(text)
+    os.replace(tmp, path)
+    os.chmod(path, 0o600)
+
+
+def write_private_bytes(path: Path, content: bytes) -> None:
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "wb") as handle:
+        handle.write(content)
     os.replace(tmp, path)
     os.chmod(path, 0o600)
 
@@ -115,6 +138,7 @@ def parse_id_set(*names: str) -> set[int]:
 
 class TelegramAPI:
     def __init__(self, token: str) -> None:
+        self.token = token
         self.base = f"https://api.telegram.org/bot{token}/"
 
     def call(self, method: str, params: Optional[dict[str, Any]] = None) -> dict[str, Any]:
@@ -155,6 +179,24 @@ class TelegramAPI:
         if offset is not None:
             params["offset"] = offset
         return self.call("getUpdates", params).get("result", [])
+
+    def get_file(self, file_id: str) -> dict[str, Any]:
+        return self.call("getFile", {"file_id": file_id}).get("result", {})
+
+    def download_file(self, file_path: str) -> bytes:
+        quoted_path = urllib.parse.quote(file_path, safe="/")
+        request = urllib.request.Request(
+            f"https://api.telegram.org/file/bot{self.token}/{quoted_path}",
+            method="GET",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=70) as response:
+                return response.read()
+        except urllib.error.HTTPError as exc:
+            body = exc.read().decode(errors="replace")[:600]
+            raise RuntimeError(f"Telegram file download HTTP {exc.code}: {body}") from exc
+        except urllib.error.URLError as exc:
+            raise RuntimeError(f"Telegram file download error: {exc.reason}") from exc
 
 
 def split_for_telegram(text: str) -> list[str]:
@@ -202,6 +244,129 @@ class TypingPulse:
 
 def state_dir() -> Path:
     return private_dir(Path(os.environ.get("CODEX_TELEGRAM_STATE_DIR", STATE_DIR_DEFAULT)))
+
+
+def attachments_dir() -> Path:
+    return private_dir(state_dir() / "attachments")
+
+
+def int_or_none(value: object) -> Optional[int]:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def image_suffix(file_name: str = "", mime_type: str = "", file_path: str = "") -> str:
+    for raw in (file_name, file_path):
+        suffix = Path(raw or "").suffix.lower()
+        if suffix in IMAGE_SUFFIXES:
+            return ".jpg" if suffix == ".jpeg" else suffix
+    mime = (mime_type or "").split(";", 1)[0].strip().lower()
+    return IMAGE_SUFFIX_BY_MIME.get(mime, ".jpg")
+
+
+def image_attachment_specs(message: dict[str, Any]) -> list[dict[str, Any]]:
+    specs: list[dict[str, Any]] = []
+    photos = message.get("photo") or []
+    if isinstance(photos, list) and photos:
+        photo = max(
+            photos,
+            key=lambda item: (
+                int_or_none(item.get("file_size")) or 0,
+                (int_or_none(item.get("width")) or 0) * (int_or_none(item.get("height")) or 0),
+            ),
+        )
+        if photo.get("file_id"):
+            specs.append(
+                {
+                    "file_id": str(photo["file_id"]),
+                    "file_size": int_or_none(photo.get("file_size")),
+                    "file_name": "telegram-photo.jpg",
+                    "mime_type": "image/jpeg",
+                }
+            )
+
+    document = message.get("document") or {}
+    if isinstance(document, dict) and document.get("file_id"):
+        file_name = str(document.get("file_name") or "")
+        mime_type = str(document.get("mime_type") or "")
+        if mime_type.startswith("image/") or Path(file_name).suffix.lower() in IMAGE_SUFFIXES:
+            specs.append(
+                {
+                    "file_id": str(document["file_id"]),
+                    "file_size": int_or_none(document.get("file_size")),
+                    "file_name": file_name,
+                    "mime_type": mime_type,
+                }
+            )
+
+    return specs[:MAX_IMAGES_PER_MESSAGE]
+
+
+def prune_attachment_cache(root: Path) -> None:
+    retention_days = env_int("CODEX_TELEGRAM_IMAGE_RETENTION_DAYS", DEFAULT_IMAGE_RETENTION_DAYS)
+    if retention_days < 0 or not root.exists():
+        return
+    cutoff = time.time() - retention_days * 86400
+    for path in sorted(root.rglob("*"), reverse=True):
+        try:
+            if path.is_file() and path.stat().st_mtime < cutoff:
+                path.unlink()
+            elif path.is_dir():
+                path.rmdir()
+        except OSError:
+            pass
+
+
+def download_telegram_images(api: TelegramAPI, message: dict[str, Any]) -> list[Path]:
+    specs = image_attachment_specs(message)
+    if not specs:
+        return []
+
+    root = attachments_dir()
+    prune_attachment_cache(root)
+    max_bytes = env_int("CODEX_TELEGRAM_MAX_IMAGE_BYTES", DEFAULT_MAX_IMAGE_BYTES)
+    if max_bytes <= 0:
+        raise RuntimeError("CODEX_TELEGRAM_MAX_IMAGE_BYTES must be positive")
+
+    saved: list[Path] = []
+    dated_dir = private_dir(root / dt.datetime.now().strftime("%Y%m%d"))
+    message_id = str(message.get("message_id") or int(time.time()))
+    stamp = dt.datetime.now().strftime("%H%M%S")
+
+    for index, spec in enumerate(specs, start=1):
+        announced_size = int_or_none(spec.get("file_size"))
+        if announced_size and announced_size > max_bytes:
+            raise RuntimeError(
+                f"image is too large ({announced_size} bytes; limit {max_bytes})"
+            )
+
+        file_info = api.get_file(str(spec["file_id"]))
+        file_path = str(file_info.get("file_path") or "")
+        if not file_path:
+            raise RuntimeError("Telegram did not return a file path for the image")
+
+        reported_size = int_or_none(file_info.get("file_size")) or announced_size
+        if reported_size and reported_size > max_bytes:
+            raise RuntimeError(
+                f"image is too large ({reported_size} bytes; limit {max_bytes})"
+            )
+
+        content = api.download_file(file_path)
+        if len(content) > max_bytes:
+            raise RuntimeError(f"image is too large ({len(content)} bytes; limit {max_bytes})")
+
+        suffix = image_suffix(
+            str(spec.get("file_name") or ""),
+            str(spec.get("mime_type") or ""),
+            file_path,
+        )
+        target = dated_dir / f"telegram-{stamp}-{message_id}-{index}{suffix}"
+        write_private_bytes(target, content)
+        saved.append(target)
+
+    return saved
 
 
 def read_offset(path: Path) -> Optional[int]:
@@ -298,8 +463,19 @@ def relay_user_name() -> str:
     return os.environ.get("CODEX_RELAY_USER_NAME", "the user").strip() or "the user"
 
 
-def codex_prompt(message_text: str, thread_name: str) -> str:
+def codex_prompt(message_text: str, thread_name: str, image_paths: Optional[list[Path]] = None) -> str:
     user_name = relay_user_name()
+    image_paths = image_paths or []
+    image_note = ""
+    if image_paths:
+        image_label = "image" if len(image_paths) == 1 else "images"
+        image_lines = "\n".join(f"- {path}" for path in image_paths)
+        image_note = (
+            f"\nTelegram sent {len(image_paths)} {image_label}. "
+            "They are attached to this Codex prompt and saved privately at:\n"
+            f"{image_lines}\n"
+            "Use them only for this Telegram task; do not reveal private paths unless needed.\n"
+        )
     return f"""You are Codex replying to {user_name} through a private Telegram bot.
 
 Act like the Codex Mac app remote-controlled from {user_name}'s phone.
@@ -310,6 +486,7 @@ Default voice: Mac-side operator, not generic chatbot. Say what changed, what yo
 Do not reveal secrets, tokens, auth files, private logs, session transcripts, or personal content.
 If a requested action is blocked by credentials, permissions, network, macOS privacy, tool availability, or mandatory safety confirmation, state the exact blocker and the next human-only step.
 This Telegram chat is mapped to the Codex thread named `{thread_name}`.
+{image_note}
 
 {user_name}:
 {message_text}
@@ -336,7 +513,11 @@ def extract_session_id(output: str) -> str:
     return match.group(1) if match else ""
 
 
-def run_codex(message_text: str, thread: dict[str, Any]) -> tuple[str, str]:
+def run_codex(
+    message_text: str,
+    thread: dict[str, Any],
+    image_paths: Optional[list[Path]] = None,
+) -> tuple[str, str]:
     workdir = Path(str(thread.get("workdir") or default_workdir())).expanduser()
     if not workdir.exists():
         return (f"Blocked: CODEX_TELEGRAM_WORKDIR does not exist: {workdir}", "")
@@ -349,10 +530,12 @@ def run_codex(message_text: str, thread: dict[str, Any]) -> tuple[str, str]:
     sandbox = os.environ.get("CODEX_TELEGRAM_SANDBOX", "danger-full-access")
     model = os.environ.get("CODEX_TELEGRAM_MODEL", "gpt-5.5").strip()
     approval = os.environ.get("CODEX_TELEGRAM_APPROVAL", "never")
-    timeout = env_int("CODEX_TELEGRAM_TIMEOUT_SECONDS", 240)
+    timeout = env_int("CODEX_TELEGRAM_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS)
     thread_name = str(thread.get("name") or DEFAULT_THREAD)
     session_id = str(thread.get("session_id") or "")
     command = base_codex_command(codex_path, model, approval, sandbox)
+    for image_path in image_paths or []:
+        command.extend(["--image", str(image_path)])
 
     with tempfile.NamedTemporaryFile(prefix="codex-telegram-", delete=False) as handle:
         output_path = Path(handle.name)
@@ -365,7 +548,7 @@ def run_codex(message_text: str, thread: dict[str, Any]) -> tuple[str, str]:
     try:
         completed = subprocess.run(
             command,
-            input=codex_prompt(message_text, thread_name),
+            input=codex_prompt(message_text, thread_name, image_paths),
             text=True,
             cwd=workdir,
             capture_output=True,
@@ -376,7 +559,11 @@ def run_codex(message_text: str, thread: dict[str, Any]) -> tuple[str, str]:
         else:
             answer = ""
     except subprocess.TimeoutExpired:
-        return (f"Blocked: Codex timed out after {timeout} seconds.", session_id)
+        return (
+            f"Blocked: Codex timed out after {timeout} seconds. "
+            "The task was stopped before it could reply.",
+            session_id,
+        )
     finally:
         try:
             output_path.unlink()
@@ -411,7 +598,7 @@ def command_help() -> str:
             "/tools - probe Codex tool access",
             "/reset - restart the current thread",
             "",
-            "Normal messages go to the active thread.",
+            "Normal messages and images go to the active thread.",
         ]
     )
 
@@ -425,6 +612,8 @@ def status_text(thread: dict[str, Any]) -> str:
             f"model: {os.environ.get('CODEX_TELEGRAM_MODEL', 'gpt-5.5')}",
             f"sandbox: {os.environ.get('CODEX_TELEGRAM_SANDBOX', 'danger-full-access')}",
             f"approval: {os.environ.get('CODEX_TELEGRAM_APPROVAL', 'never')}",
+            f"timeout: {env_int('CODEX_TELEGRAM_TIMEOUT_SECONDS', DEFAULT_TIMEOUT_SECONDS)}s",
+            "telegram images: enabled",
         ]
     )
 
@@ -452,6 +641,7 @@ def capabilities_text() -> str:
             "- keep named Codex threads with separate folders",
             "- inspect and edit local repos/files",
             "- run tests, scripts, git, and shell commands",
+            "- read Telegram photo and image-document attachments",
             "- use Computer Use, Browser Use, apps/connectors, images, and subagents when your Codex runtime exposes them",
             "- operate Atlas/browser sessions when macOS permissions and logins allow it",
             "- draft public messages, commits, and posts, then stop at the confirmation boundary",
@@ -471,8 +661,8 @@ def try_text() -> str:
             "3. /new repo",
             "   /cd Projects/my-repo",
             "   read this repo and make the README more impressive without pushing",
-            "4. use Computer Use to tell me what apps are open and what looks unfinished",
-            "5. make a launch plan for this folder, then do the first safe local step",
+            "4. send a screenshot/photo and ask what I should do next",
+            "5. use Computer Use to tell me what apps are open and what looks unfinished",
         ]
     )
 
@@ -491,7 +681,8 @@ def handle_message(
     if user_id is not None:
         user_id = int(user_id)
     message_id = message.get("message_id")
-    text = (message.get("text") or "").strip()
+    text = (message.get("text") or message.get("caption") or "").strip()
+    image_specs = image_attachment_specs(message)
 
     enrollment_mode = not allowed_users and not allowed_chats
     if enrollment_mode:
@@ -509,8 +700,8 @@ def handle_message(
         api.send_message(chat_id, "Not authorized.", message_id)
         return
 
-    if not text:
-        api.send_message(chat_id, "Send text for now.", message_id)
+    if not text and not image_specs:
+        api.send_message(chat_id, "Send text or an image for now.", message_id)
         return
 
     command, _, arg = text.partition(" ")
@@ -650,8 +841,16 @@ def handle_message(
 
     api.send_chat_action(chat_id)
     thread = ensure_thread(data, chat_id, active_name)
+    image_paths: list[Path] = []
+    if image_specs:
+        try:
+            image_paths = download_telegram_images(api, message)
+        except RuntimeError as exc:
+            api.send_message(chat_id, f"Blocked: could not read Telegram image: {exc}", message_id)
+            return
+    prompt_text = text or "The user sent image attachment(s). Inspect them and reply tersely with what you can see."
     with TypingPulse(api, chat_id):
-        answer, session_id = run_codex(text, thread)
+        answer, session_id = run_codex(prompt_text, thread, image_paths)
     if session_id:
         thread["session_id"] = session_id
     thread["updated_at"] = now_iso()
@@ -674,6 +873,8 @@ def check_config() -> int:
     print(f"sandbox={os.environ.get('CODEX_TELEGRAM_SANDBOX', 'danger-full-access')}")
     print(f"model={os.environ.get('CODEX_TELEGRAM_MODEL', 'gpt-5.5')}")
     print(f"approval={os.environ.get('CODEX_TELEGRAM_APPROVAL', 'never')}")
+    print(f"timeout_seconds={env_int('CODEX_TELEGRAM_TIMEOUT_SECONDS', DEFAULT_TIMEOUT_SECONDS)}")
+    print(f"telegram_images={'enabled'}")
     if not token:
         return 2
     if not workdir.exists() or shutil.which(codex_bin) is None:

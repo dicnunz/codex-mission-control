@@ -3,15 +3,13 @@
 ## Primary X Post
 
 ```text
-I left my Mac open on my desk and controlled Codex from Telegram.
+I built a Telegram remote for Codex on your Mac.
 
-So I built Codex Relay.
+Text the bot. Your Mac runs the real Codex CLI locally and replies back.
 
-Text your bot. Your Mac runs the real Codex CLI locally with files, repos, apps, Computer Use, and subagents.
+No hosted relay. No new agent platform.
 
-Private. Local. gpt-5.5. LaunchAgent. Named threads.
-
-GitHub: https://github.com/dicnunz/codex-relay
+https://github.com/dicnunz/codex-relay
 ```
 
 Attach: `assets/codex-relay-demo.mp4`
@@ -28,23 +26,19 @@ cd codex-relay
 Then DM your bot:
 /alive
 /tools
-/try
+send a screenshot and ask what broke
 ```
 
-## GitHub Publish Commands
+## Preflight
 
 ```bash
-gh repo create dicnunz/codex-relay --public --source=. --remote=origin --push
-gh repo edit dicnunz/codex-relay --description "Run Codex on your Mac from Telegram." --homepage ""
-gh repo edit dicnunz/codex-relay --add-topic codex --add-topic telegram-bot --add-topic macos --add-topic computer-use --add-topic agents --add-topic openai --add-topic launchagent
+./scripts/doctor.sh
+ffprobe -v error -show_entries format=duration,size assets/codex-relay-demo.mp4
+git status --short --branch
 ```
 
-## Final Preflight Already Passed
+## Public Repo
 
-- Local relay running.
-- `./scripts/doctor.sh` passed.
-- Telegram `/alive`, `/capabilities`, `/try` passed.
-- Telegram repo task passed.
-- Telegram subagent task passed.
-- Demo MP4 valid at 1280x720.
-- Release zip contains no `.env`, token screenshot, runtime state, pycache, or `.DS_Store`.
+```text
+https://github.com/dicnunz/codex-relay
+```

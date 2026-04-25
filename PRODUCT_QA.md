@@ -1,39 +1,38 @@
 # Product QA
 
-This is the pre-launch quality bar for Codex Relay.
+## Quality Bar
 
-## What Made The Category Feel Cool
+Codex Relay should feel like a clean Mac remote, not a novelty bot.
 
-OpenClaw's pull was not a novelty bot. It made a local machine feel reachable through normal chat, stayed online as a background gateway, kept state, worked through messaging surfaces, and could act on real tools instead of only talking.
+The product is ready to show only when these are true:
 
-Codex Relay should be narrower and cleaner:
-
-- Telegram is the remote.
-- Codex is the engine.
-- The Mac is the computer being operated.
-- The first run should show `/alive`, `/tools`, `/try`, then a real task.
+- The LaunchAgent is running.
+- The installed runtime script matches the repo.
+- `./scripts/doctor.sh` passes.
+- The configured Codex app CLI can run `gpt-5.5`.
+- Telegram images are saved privately and attached to Codex.
+- The demo video is readable in the first three seconds.
+- The README explains power and risk without hype.
 
 ## Verified Locally
 
-- `/alive`: instant live status with thread, model, folder, and routing.
-- `/capabilities`: honest capability and safety scope.
-- `/try`: first-run prompt menu.
-- `/new viralqa`: created a named Telegram-backed Codex thread.
-- `/cd <repo>`: set a per-thread repo folder.
-- Normal task: Codex read live repo state and reported branch, latest commit, README assets, video asset, and weakness.
-- Subagent task: Telegram-launched Codex spawned a subagent and read the README title.
-- `/tools`: Computer Use ok, Telegram running, ChatGPT Atlas running.
+- LaunchAgent loaded: `com.codexrelay.agent`.
+- Runtime script matches the repo copy.
+- `./scripts/doctor.sh` passes.
+- Local `gpt-5.5` image check works through `/Applications/Codex.app/Contents/Resources/codex`.
+- Generated demo is 1280x720 H.264.
 
-## Current Weakness
+## Current Human-Only Checks
 
-The first magic moment still comes after Telegram BotFather setup. The honest fix is strong onboarding, not pretending there is no credential step.
+- Send one real Telegram image and confirm the bot replies from the new image-aware runtime.
+- Repost to X only after the final post text is confirmed.
 
 ## Launch Bar
 
-Do not post until the public demo shows:
+Public launch should include:
 
-1. `/alive`
-2. `/tools`
-3. one real repo or Mac-app task
-4. the result coming back to Telegram
-5. the GitHub install command
+1. Clean demo video.
+2. Plain one-post explanation.
+3. GitHub link.
+4. Install reply.
+5. No exaggerated claims.

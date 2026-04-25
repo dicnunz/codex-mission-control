@@ -36,6 +36,11 @@ fi
 
 [[ -f "$PLIST" ]] && ok "plist exists" || warn "plist missing"
 [[ -f "$RUNTIME/codex_relay.py" ]] && ok "runtime script exists" || warn "runtime script missing"
+if [[ -f "$RUNTIME/codex_relay.py" ]]; then
+  cmp -s "$ROOT/codex_relay.py" "$RUNTIME/codex_relay.py" && ok "runtime script matches repo" || warn "runtime script differs; run ./scripts/install_launch_agent.sh"
+fi
 
 python3 -m py_compile "$ROOT/codex_relay.py" "$ROOT/scripts/configure.py"
 ok "python syntax"
+
+PYTHONPATH="$ROOT" python3 "$ROOT/scripts/smoke_test.py"

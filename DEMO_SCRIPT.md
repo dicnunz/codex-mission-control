@@ -1,73 +1,45 @@
 # Demo Script
 
-Goal: show Codex Relay as a real phone remote for a Mac, not a chatbot gimmick.
+Goal: show a phone controlling real Codex on a Mac in seconds.
 
-The hook is:
-
-```text
-I left my Mac open on my desk and controlled Codex from bed.
-```
-
-## Shot List
-
-Generated sanitized asset:
+Generated assets:
 
 ```bash
 ./scripts/record_demo.sh
 ```
 
-Output:
+Outputs:
 
 ```text
 assets/codex-relay-demo.mp4
 assets/codex-relay-demo-poster.png
+assets/social-card.svg
+assets/demo-transcript.svg
 ```
 
-1. Mac open on desk, Codex signed in.
-2. Phone opens Telegram bot.
-3. Send `/alive`.
-4. Send `/tools`.
-5. Send `/try`.
-6. Send:
+## Story
 
 ```text
-/new demo
-/cd Documents
-tell me the three most recent files here and what they look like they are for
+Text Codex from Telegram.
+Your Mac runs the real Codex CLI locally.
+Images, files, apps, shell, Computer Use, and subagents work when your local Codex runtime exposes them.
 ```
 
-7. Show the Mac doing local work and Telegram getting the answer.
-8. End on the README install command.
+## Shot List
 
-## 30-Second Voiceover
+1. `/alive`: show the Mac route is live.
+2. Screenshot/image prompt: show Telegram image support.
+3. `/tools`: show Computer Use/tool probe.
+4. Install frame: show the repo and one-command setup.
 
-```text
-I wanted Codex on my phone, but not as a watered-down chatbot.
-
-So I made Codex Relay.
-
-My Mac stays open at home. I text this Telegram bot. It runs the real Codex CLI locally with gpt-5.5, my files, my repos, and Computer Use.
-
-Here I ask for the tool check. It sees Telegram and Atlas. Then I switch threads and ask it to work in a folder.
-
-There is no hosted middleman. It is just Telegram to a LaunchAgent to Codex on my Mac.
-```
-
-## Caption
-
-I made Codex Relay: a private Telegram remote for Codex on your Mac.
-
-Leave the laptop open. Text your bot. Codex runs locally with your files, repos, apps, plugins, and Computer Use.
-
-No hosted middleman. No fake agent shell. Just Telegram -> Codex CLI -> your Mac.
-
-## Pinned Reply
+## Voiceover
 
 ```text
-GitHub: https://github.com/dicnunz/codex-relay
+Codex Relay is a Telegram remote for Codex on your Mac.
 
-Install:
-git clone https://github.com/dicnunz/codex-relay.git
-cd codex-relay
-./scripts/install.sh
+You text the bot. A local LaunchAgent calls the Codex app CLI. Codex works on the Mac and replies back in Telegram.
+
+It can take screenshots from Telegram, work in folders, run tools, and use whatever your local Codex install exposes.
+
+No hosted relay. No new agent platform. Just your phone, your Mac, and Codex.
 ```

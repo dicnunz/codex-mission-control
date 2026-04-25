@@ -1,29 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640" role="img" aria-label="Codex Relay Telegram demo transcript">
-  <rect width="960" height="640" fill="#0f172a"/>
-  <rect x="54" y="48" width="852" height="544" rx="28" fill="#111827" stroke="#334155"/>
-  <text x="92" y="98" fill="#e0f2fe" font-family="Inter, SF Pro Display, Arial, sans-serif" font-size="30" font-weight="800">Codex Relay Demo</text>
-  <text x="92" y="132" fill="#94a3b8" font-family="Inter, SF Pro Display, Arial, sans-serif" font-size="18">Phone chat controlling a real local Codex session on macOS</text>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640" role="img" aria-label="Codex Relay Telegram transcript">
+  <rect width="960" height="640" fill="#080808"/>
+  <rect x="70" y="44" width="820" height="552" rx="30" fill="#111111" stroke="#2a2a2a"/>
+  <text x="112" y="102" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="30" font-weight="700">Codex Bridge</text>
+  <text x="112" y="134" fill="#8b8b8b" font-family="Arial, sans-serif" font-size="17">Telegram -> LaunchAgent -> Codex CLI -> Mac</text>
 
-  <g font-family="Inter, SF Mono, Menlo, monospace" font-size="18">
-    <rect x="92" y="176" width="250" height="48" rx="18" fill="#1d4ed8"/>
-    <text x="116" y="207" fill="#ffffff">/new school</text>
+  <g font-family="Menlo, monospace" font-size="17">
+    <rect x="112" y="178" width="286" height="48" rx="20" fill="#2563eb"/>
+    <text x="134" y="209" fill="#ffffff">can you see this image?</text>
+    <rect x="428" y="176" width="176" height="96" rx="20" fill="#171717" stroke="#333333"/>
+    <rect x="452" y="200" width="128" height="48" rx="10" fill="#262626"/>
+    <text x="474" y="231" fill="#a3a3a3">screenshot</text>
 
-    <rect x="92" y="240" width="374" height="48" rx="18" fill="#1d4ed8"/>
-    <text x="116" y="271" fill="#ffffff">go on Atlas and check due work</text>
+    <rect x="322" y="300" width="430" height="96" rx="22" fill="#171717" stroke="#333333"/>
+    <text x="348" y="332" fill="#f5f5f5">Yes. Image attached to Codex.</text>
+    <text x="348" y="362" fill="#a7f3d0">Saved privately, passed with --image.</text>
 
-    <rect x="494" y="246" width="300" height="86" rx="18" fill="#155e75"/>
-    <text x="518" y="277" fill="#ecfeff">Opening Atlas...</text>
-    <text x="518" y="305" fill="#ecfeff">Reading live page state...</text>
+    <rect x="112" y="428" width="358" height="48" rx="20" fill="#2563eb"/>
+    <text x="134" y="459" fill="#ffffff">make this repo launch-ready</text>
 
-    <rect x="92" y="360" width="168" height="48" rx="18" fill="#1d4ed8"/>
-    <text x="116" y="391" fill="#ffffff">/tools</text>
-
-    <rect x="494" y="352" width="332" height="116" rx="18" fill="#155e75"/>
-    <text x="518" y="385" fill="#ecfeff">Computer Use: ok</text>
-    <text x="518" y="417" fill="#ecfeff">Telegram: running</text>
-    <text x="518" y="449" fill="#ecfeff">ChatGPT Atlas: running</text>
-
-    <rect x="92" y="500" width="410" height="48" rx="18" fill="#1d4ed8"/>
-    <text x="116" y="531" fill="#ffffff">make my repo launch-ready</text>
+    <rect x="322" y="504" width="454" height="58" rx="22" fill="#171717" stroke="#333333"/>
+    <text x="348" y="540" fill="#f5f5f5">Done. Runtime live. Doctor passed.</text>
   </g>
 </svg>

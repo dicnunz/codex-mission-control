@@ -1,52 +1,36 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Codex Relay social preview">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#111827"/>
-      <stop offset="0.55" stop-color="#0f172a"/>
-      <stop offset="1" stop-color="#052e2b"/>
-    </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="18" stdDeviation="24" flood-color="#000000" flood-opacity="0.35"/>
-    </filter>
-  </defs>
-  <rect width="1280" height="720" fill="url(#bg)"/>
-  <rect x="84" y="76" width="1112" height="568" rx="32" fill="#0b1220" stroke="#1f3b4d"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-label="Codex Relay social card">
+  <rect width="1280" height="720" fill="#080808"/>
+  <rect x="56" y="56" width="1168" height="608" rx="28" fill="#111111" stroke="#2a2a2a"/>
+  <text x="104" y="136" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="74" font-weight="700">Codex Relay</text>
+  <text x="108" y="190" fill="#b8b8b8" font-family="Arial, sans-serif" font-size="28">Telegram remote for Codex on your Mac.</text>
+  <text x="108" y="238" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="28">Text the bot. Your Mac does the work.</text>
 
-  <g transform="translate(130 118)">
-    <text x="0" y="0" fill="#e5f9ff" font-family="Inter, SF Pro Display, Arial, sans-serif" font-size="60" font-weight="800">Codex Relay</text>
-    <text x="0" y="52" fill="#8dd8d3" font-family="Inter, SF Pro Display, Arial, sans-serif" font-size="28">Run Codex on your Mac from Telegram.</text>
-    <text x="0" y="112" fill="#dbeafe" font-family="Inter, SF Mono, Menlo, monospace" font-size="22">Telegram -&gt; Codex CLI -&gt; Computer Use -&gt; your Mac</text>
+  <g transform="translate(108 306)">
+    <rect width="320" height="246" rx="34" fill="#050505" stroke="#303030"/>
+    <rect x="24" y="26" width="272" height="42" rx="21" fill="#1f2937"/>
+    <text x="44" y="54" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="17" font-weight="700">Telegram</text>
+    <rect x="34" y="92" width="162" height="38" rx="18" fill="#2563eb"/>
+    <text x="54" y="117" fill="#ffffff" font-family="Menlo, monospace" font-size="15">/alive</text>
+    <rect x="82" y="148" width="204" height="58" rx="18" fill="#171717" stroke="#333333"/>
+    <text x="102" y="174" fill="#d4d4d4" font-family="Menlo, monospace" font-size="14">Mac is live</text>
+    <text x="102" y="194" fill="#22c55e" font-family="Menlo, monospace" font-size="14">gpt-5.5 ready</text>
   </g>
 
-  <g transform="translate(116 270)" filter="url(#shadow)">
-    <rect x="0" y="0" width="330" height="300" rx="36" fill="#111827" stroke="#334155" stroke-width="2"/>
-    <rect x="20" y="24" width="290" height="252" rx="24" fill="#0f172a"/>
-    <text x="44" y="68" fill="#e0f2fe" font-family="Inter, SF Pro Display, Arial, sans-serif" font-size="20" font-weight="700">Telegram</text>
-    <rect x="44" y="94" width="182" height="38" rx="18" fill="#1d4ed8"/>
-    <text x="62" y="119" fill="#ffffff" font-family="Inter, SF Mono, Menlo, monospace" font-size="16">/tools</text>
-    <rect x="44" y="148" width="238" height="72" rx="18" fill="#155e75"/>
-    <text x="62" y="174" fill="#ecfeff" font-family="Inter, SF Mono, Menlo, monospace" font-size="15">Computer Use: ok</text>
-    <text x="62" y="196" fill="#ecfeff" font-family="Inter, SF Mono, Menlo, monospace" font-size="15">Telegram: running</text>
+  <text x="476" y="438" fill="#d4d4d4" font-family="Arial, sans-serif" font-size="46" font-weight="700">-></text>
+
+  <g transform="translate(562 284)">
+    <rect width="560" height="278" rx="24" fill="#050505" stroke="#303030"/>
+    <rect width="560" height="44" rx="24" fill="#1a1a1a"/>
+    <circle cx="30" cy="22" r="6" fill="#ef4444"/>
+    <circle cx="52" cy="22" r="6" fill="#f59e0b"/>
+    <circle cx="74" cy="22" r="6" fill="#22c55e"/>
+    <text x="34" y="86" fill="#a7f3d0" font-family="Menlo, monospace" font-size="17">$ codex exec --model gpt-5.5</text>
+    <text x="34" y="126" fill="#e5e5e5" font-family="Menlo, monospace" font-size="17">files, repos, shell</text>
+    <text x="34" y="160" fill="#e5e5e5" font-family="Menlo, monospace" font-size="17">images, Computer Use, subagents</text>
+    <text x="34" y="194" fill="#e5e5e5" font-family="Menlo, monospace" font-size="17">reply back to Telegram</text>
+    <rect x="34" y="224" width="206" height="34" rx="17" fill="#f5f5f5"/>
+    <text x="54" y="247" fill="#111111" font-family="Arial, sans-serif" font-size="15" font-weight="700">local LaunchAgent</text>
   </g>
 
-  <g transform="translate(486 258)">
-    <text x="0" y="70" fill="#67e8f9" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="700">-&gt;</text>
-  </g>
-
-  <g transform="translate(600 246)" filter="url(#shadow)">
-    <rect x="0" y="0" width="490" height="326" rx="26" fill="#020617" stroke="#334155" stroke-width="2"/>
-    <rect x="0" y="0" width="490" height="42" rx="26" fill="#111827"/>
-    <circle cx="32" cy="21" r="7" fill="#ef4444"/>
-    <circle cx="56" cy="21" r="7" fill="#f59e0b"/>
-    <circle cx="80" cy="21" r="7" fill="#22c55e"/>
-    <text x="28" y="82" fill="#93c5fd" font-family="Inter, SF Mono, Menlo, monospace" font-size="17">$ codex exec --model gpt-5.5</text>
-    <text x="28" y="124" fill="#d1fae5" font-family="Inter, SF Mono, Menlo, monospace" font-size="17">LaunchAgent: running</text>
-    <text x="28" y="158" fill="#d1fae5" font-family="Inter, SF Mono, Menlo, monospace" font-size="17">Sandbox: danger-full-access</text>
-    <text x="28" y="192" fill="#d1fae5" font-family="Inter, SF Mono, Menlo, monospace" font-size="17">Thread: school</text>
-    <text x="28" y="226" fill="#fef3c7" font-family="Inter, SF Mono, Menlo, monospace" font-size="17">Mac apps + files + repos + tools</text>
-    <rect x="28" y="260" width="248" height="34" rx="17" fill="#0e7490"/>
-    <text x="48" y="283" fill="#ecfeff" font-family="Inter, SF Pro Display, Arial, sans-serif" font-size="16" font-weight="700">Local. Private. Live.</text>
-  </g>
-
-  <text x="130" y="626" fill="#bae6fd" font-family="Inter, SF Mono, Menlo, monospace" font-size="22">git clone ... &amp;&amp; ./scripts/install.sh</text>
+  <text x="108" y="614" fill="#8b8b8b" font-family="Menlo, monospace" font-size="21">github.com/dicnunz/codex-relay</text>
 </svg>
