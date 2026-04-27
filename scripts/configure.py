@@ -8,6 +8,7 @@ import getpass
 import os
 import secrets
 import shutil
+import ssl
 import subprocess
 import sys
 import time
@@ -20,6 +21,18 @@ from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV_PATH = ROOT / ".env"
+CA_FILE_KEYS = ("CODEX_RELAY_CA_FILE", "SSL_CERT_FILE", "REQUESTS_CA_BUNDLE")
+COMMON_CA_FILES = (
+    "/etc/ssl/cert.pem",
+    "/opt/homebrew/etc/openssl@3/cert.pem",
+    "/opt/homebrew/etc/ca-certificates/cert.pem",
+    "/usr/local/etc/openssl@3/cert.pem",
+    "/usr/local/etc/ca-certificates/cert.pem",
+)
+
+
+class TelegramTLSCertificateError(RuntimeError):
+    """Raised when Python cannot verify Telegram's HTTPS certificate."""
 
 
 def private_write(path: Path, text: str) -> None:
@@ -47,6 +60,7 @@ def save_env(values: dict[str, str]) -> None:
         "TELEGRAM_BOT_TOKEN",
         "TELEGRAM_ALLOWED_USER_ID",
         "TELEGRAM_ALLOWED_CHAT_ID",
+        "CODEX_RELAY_CA_FILE",
         "CODEX_RELAY_USER_NAME",
         "CODEX_RELAY_ASSISTANT_NAME",
         "CODEX_RELAY_ASSISTANT_PERSONALITY",
@@ -74,6 +88,98 @@ def save_env(values: dict[str, str]) -> None:
     private_write(ENV_PATH, "\n".join(lines) + "\n")
 
 
+def apply_env_certificate_settings(values: dict[str, str]) -> None:
+    for key in CA_FILE_KEYS:
+        if values.get(key) and key not in os.environ:
+            os.environ[key] = values[key]
+
+
+def candidate_ca_files() -> list[Path]:
+    candidates: list[str] = []
+    for key in CA_FILE_KEYS:
+        value = os.environ.get(key, "").strip()
+        if value:
+            candidates.append(value)
+
+    paths = ssl.get_default_verify_paths()
+    candidates.extend([paths.cafile or "", paths.openssl_cafile or ""])
+
+    try:
+        import certifi  # type: ignore[import-not-found]
+
+        candidates.append(certifi.where())
+    except Exception:
+        pass
+
+    candidates.extend(COMMON_CA_FILES)
+
+    seen: set[Path] = set()
+    usable: list[Path] = []
+    for raw in candidates:
+        if not raw:
+            continue
+        path = Path(raw).expanduser()
+        if path in seen or not path.is_file():
+            continue
+        seen.add(path)
+        usable.append(path)
+    return usable
+
+
+def is_certificate_error(exc: BaseException) -> bool:
+    reason = getattr(exc, "reason", exc)
+    if isinstance(reason, ssl.SSLError):
+        return True
+    return "CERTIFICATE_VERIFY_FAILED" in str(reason)
+
+
+def python_org_certificate_command() -> str:
+    version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    command = Path(f"/Applications/Python {version}/Install Certificates.command")
+    if command.exists():
+        return f'open "{command}"'
+    return 'open "/Applications/Python 3.x/Install Certificates.command"'
+
+
+def certificate_error_message(exc: BaseException, tried: list[Path]) -> str:
+    tried_text = ", ".join(str(path) for path in tried) or "none found"
+    return (
+        "Could not verify Telegram's HTTPS certificate.\n"
+        f"Original error: {getattr(exc, 'reason', exc)}\n"
+        f"Tried CA bundles: {tried_text}\n\n"
+        "Fix one of these, then rerun ./scripts/install.sh:\n"
+        f"- python.org macOS Python: run {python_org_certificate_command()}\n"
+        "- Homebrew/system Python: make sure /etc/ssl/cert.pem or Homebrew ca-certificates exists.\n"
+        "- Corporate or security proxy: export CODEX_RELAY_CA_FILE=/path/to/your-ca.pem "
+        "or put that line in .env.\n\n"
+        "Do not bypass TLS verification for a bot token."
+    )
+
+
+def telegram_urlopen(request: urllib.request.Request, timeout: int):
+    try:
+        return urllib.request.urlopen(request, timeout=timeout)
+    except urllib.error.URLError as exc:
+        if not is_certificate_error(exc):
+            raise
+        first_error: BaseException = exc
+
+    tried: list[Path] = []
+    for ca_file in candidate_ca_files():
+        tried.append(ca_file)
+        try:
+            context = ssl.create_default_context(cafile=str(ca_file))
+            return urllib.request.urlopen(request, timeout=timeout, context=context)
+        except urllib.error.URLError as exc:
+            if not is_certificate_error(exc):
+                raise
+            first_error = exc
+        except ssl.SSLError as exc:
+            first_error = exc
+
+    raise TelegramTLSCertificateError(certificate_error_message(first_error, tried)) from first_error
+
+
 def telegram_call(token: str, method: str, params: Optional[dict[str, str]] = None) -> dict:
     data = urllib.parse.urlencode(params or {}).encode()
     request = urllib.request.Request(
@@ -81,7 +187,7 @@ def telegram_call(token: str, method: str, params: Optional[dict[str, str]] = No
         data=data,
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=20) as response:
+    with telegram_urlopen(request, timeout=20) as response:
         payload = json.loads(response.read().decode())
     if not payload.get("ok"):
         raise RuntimeError(str(payload))
@@ -147,6 +253,8 @@ def wait_for_start(
         offset = latest_update_offset(token)
     except urllib.error.HTTPError as exc:
         raise SystemExit(f"Telegram rejected the token: HTTP {exc.code}") from exc
+    except TelegramTLSCertificateError as exc:
+        raise SystemExit(str(exc)) from exc
     print("Authorize only your private Telegram DM.")
     if deep_link:
         print(f"Open {deep_link}")
@@ -161,6 +269,8 @@ def wait_for_start(
             updates = telegram_call(token, "getUpdates", params).get("result", [])
         except urllib.error.HTTPError as exc:
             raise SystemExit(f"Telegram rejected the token: HTTP {exc.code}") from exc
+        except TelegramTLSCertificateError as exc:
+            raise SystemExit(str(exc)) from exc
         for update in updates:
             offset = int(update["update_id"]) + 1
             match = enrollment_match(update, nonce)
@@ -172,12 +282,15 @@ def wait_for_start(
 
 def main() -> int:
     values = load_env()
+    apply_env_certificate_settings(values)
     codex_bin = values.get("CODEX_BIN") or detect_codex()
     token = prompt_token(values.get("TELEGRAM_BOT_TOKEN", ""))
     try:
         bot = telegram_call(token, "getMe")["result"]
     except urllib.error.HTTPError as exc:
         raise SystemExit(f"Telegram rejected the token: HTTP {exc.code}") from exc
+    except TelegramTLSCertificateError as exc:
+        raise SystemExit(str(exc)) from exc
     username = bot.get("username") or ""
     user_id, chat_id = wait_for_start(
         token,

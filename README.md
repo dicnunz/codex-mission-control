@@ -52,6 +52,14 @@ cd codex-relay
 
 The installer verifies the bot token, gives you a one-time `/start` code, allow-lists your private Telegram DM, installs the LaunchAgent, and runs `doctor.sh`.
 
+If token verification fails with `CERTIFICATE_VERIFY_FAILED`, rerun after fixing Python's CA bundle:
+
+```bash
+open "/Applications/Python 3.x/Install Certificates.command"
+```
+
+Codex Relay also retries Telegram HTTPS calls with the active Python CA path, `certifi` when installed, and common macOS/Homebrew CA bundles. On managed networks that use HTTPS inspection, set `CODEX_RELAY_CA_FILE=/path/to/your-ca.pem` in `.env` instead of disabling TLS verification.
+
 Then DM your bot:
 
 ```text

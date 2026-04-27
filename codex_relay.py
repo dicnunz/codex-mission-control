@@ -10,6 +10,7 @@ import os
 import re
 import signal
 import shutil
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -54,6 +55,18 @@ IMAGE_SUFFIX_BY_MIME = {
     "image/png": ".png",
     "image/webp": ".webp",
 }
+CA_FILE_KEYS = ("CODEX_RELAY_CA_FILE", "SSL_CERT_FILE", "REQUESTS_CA_BUNDLE")
+COMMON_CA_FILES = (
+    "/etc/ssl/cert.pem",
+    "/opt/homebrew/etc/openssl@3/cert.pem",
+    "/opt/homebrew/etc/ca-certificates/cert.pem",
+    "/usr/local/etc/openssl@3/cert.pem",
+    "/usr/local/etc/ca-certificates/cert.pem",
+)
+
+
+class TelegramTLSCertificateError(RuntimeError):
+    """Raised when Python cannot verify Telegram's HTTPS certificate."""
 
 
 def load_dotenv(path: Path = ENV_PATH) -> None:
@@ -175,6 +188,91 @@ def parse_id_set(*names: str) -> set[int]:
     return values
 
 
+def candidate_ca_files() -> list[Path]:
+    candidates: list[str] = []
+    for key in CA_FILE_KEYS:
+        value = os.environ.get(key, "").strip()
+        if value:
+            candidates.append(value)
+
+    paths = ssl.get_default_verify_paths()
+    candidates.extend([paths.cafile or "", paths.openssl_cafile or ""])
+
+    try:
+        import certifi  # type: ignore[import-not-found]
+
+        candidates.append(certifi.where())
+    except Exception:
+        pass
+
+    candidates.extend(COMMON_CA_FILES)
+
+    seen: set[Path] = set()
+    usable: list[Path] = []
+    for raw in candidates:
+        if not raw:
+            continue
+        path = Path(raw).expanduser()
+        if path in seen or not path.is_file():
+            continue
+        seen.add(path)
+        usable.append(path)
+    return usable
+
+
+def is_certificate_error(exc: BaseException) -> bool:
+    reason = getattr(exc, "reason", exc)
+    if isinstance(reason, ssl.SSLError):
+        return True
+    return "CERTIFICATE_VERIFY_FAILED" in str(reason)
+
+
+def python_org_certificate_command() -> str:
+    version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    command = Path(f"/Applications/Python {version}/Install Certificates.command")
+    if command.exists():
+        return f'open "{command}"'
+    return 'open "/Applications/Python 3.x/Install Certificates.command"'
+
+
+def certificate_error_message(exc: BaseException, tried: list[Path]) -> str:
+    tried_text = ", ".join(str(path) for path in tried) or "none found"
+    return (
+        "Could not verify Telegram's HTTPS certificate.\n"
+        f"Original error: {getattr(exc, 'reason', exc)}\n"
+        f"Tried CA bundles: {tried_text}\n\n"
+        "Fix one of these, then rerun ./scripts/install.sh:\n"
+        f"- python.org macOS Python: run {python_org_certificate_command()}\n"
+        "- Homebrew/system Python: make sure /etc/ssl/cert.pem or Homebrew ca-certificates exists.\n"
+        "- Corporate or security proxy: set CODEX_RELAY_CA_FILE=/path/to/your-ca.pem in .env.\n\n"
+        "Do not bypass TLS verification for a bot token."
+    )
+
+
+def telegram_urlopen(request: urllib.request.Request, timeout: int):
+    try:
+        return urllib.request.urlopen(request, timeout=timeout)
+    except urllib.error.URLError as exc:
+        if not is_certificate_error(exc):
+            raise
+        first_error: BaseException = exc
+
+    tried: list[Path] = []
+    for ca_file in candidate_ca_files():
+        tried.append(ca_file)
+        try:
+            context = ssl.create_default_context(cafile=str(ca_file))
+            return urllib.request.urlopen(request, timeout=timeout, context=context)
+        except urllib.error.URLError as exc:
+            if not is_certificate_error(exc):
+                raise
+            first_error = exc
+        except ssl.SSLError as exc:
+            first_error = exc
+
+    raise TelegramTLSCertificateError(certificate_error_message(first_error, tried)) from first_error
+
+
 class TelegramAPI:
     def __init__(self, token: str) -> None:
         self.token = token
@@ -184,11 +282,13 @@ class TelegramAPI:
         data = urllib.parse.urlencode(params or {}).encode()
         request = urllib.request.Request(self.base + method, data=data, method="POST")
         try:
-            with urllib.request.urlopen(request, timeout=70) as response:
+            with telegram_urlopen(request, timeout=70) as response:
                 payload = json.loads(response.read().decode())
         except urllib.error.HTTPError as exc:
             body = exc.read().decode(errors="replace")[:600]
             raise RuntimeError(f"Telegram HTTP {exc.code}: {body}") from exc
+        except TelegramTLSCertificateError as exc:
+            raise RuntimeError(str(exc)) from exc
         except urllib.error.URLError as exc:
             raise RuntimeError(f"Telegram network error: {exc.reason}") from exc
         if not payload.get("ok"):
@@ -252,11 +352,13 @@ class TelegramAPI:
             method="POST",
         )
         try:
-            with urllib.request.urlopen(request, timeout=70) as response:
+            with telegram_urlopen(request, timeout=70) as response:
                 payload = json.loads(response.read().decode())
         except urllib.error.HTTPError as exc:
             body_text = exc.read().decode(errors="replace")[:600]
             raise RuntimeError(f"Telegram HTTP {exc.code}: {body_text}") from exc
+        except TelegramTLSCertificateError as exc:
+            raise RuntimeError(str(exc)) from exc
         except urllib.error.URLError as exc:
             raise RuntimeError(f"Telegram network error: {exc.reason}") from exc
         if not payload.get("ok"):
@@ -278,7 +380,7 @@ class TelegramAPI:
             method="GET",
         )
         try:
-            with urllib.request.urlopen(request, timeout=70) as response:
+            with telegram_urlopen(request, timeout=70) as response:
                 announced = response.headers.get("Content-Length")
                 if max_bytes is not None and announced:
                     try:
@@ -302,6 +404,8 @@ class TelegramAPI:
         except urllib.error.HTTPError as exc:
             body = exc.read().decode(errors="replace")[:600]
             raise RuntimeError(f"Telegram file download HTTP {exc.code}: {body}") from exc
+        except TelegramTLSCertificateError as exc:
+            raise RuntimeError(str(exc)) from exc
         except urllib.error.URLError as exc:
             raise RuntimeError(f"Telegram file download error: {exc.reason}") from exc
 

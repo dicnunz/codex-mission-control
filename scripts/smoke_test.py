@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import tempfile
 import os
+import ssl
 import sys
 import threading
 import json
@@ -12,6 +13,7 @@ import time
 import importlib.util
 import contextlib
 import io
+import urllib.error
 from pathlib import Path
 from typing import Optional
 
@@ -218,6 +220,35 @@ def run_tests() -> int:
         configure.secrets.token_hex = original_token_hex
         configure.telegram_call = original_telegram_call
 
+    old_configure_urlopen = configure.urllib.request.urlopen
+    old_configure_context = configure.ssl.create_default_context
+    old_configure_ca = os.environ.get("CODEX_RELAY_CA_FILE")
+    try:
+        with tempfile.NamedTemporaryFile() as ca_file:
+            os.environ["CODEX_RELAY_CA_FILE"] = ca_file.name
+            calls = []
+
+            def fake_configure_urlopen(*_args: object, **kwargs: object) -> FakeResponse:
+                calls.append(kwargs)
+                if "context" not in kwargs:
+                    raise urllib.error.URLError(
+                        ssl.SSLError("[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed")
+                    )
+                return FakeResponse([b'{"ok": true, "result": {"username": "bot"}}'])
+
+            configure.ssl.create_default_context = lambda cafile=None: ("context", cafile)
+            configure.urllib.request.urlopen = fake_configure_urlopen
+            payload = configure.telegram_call("token", "getMe")
+            assert_true(payload["result"]["username"] == "bot", "expected configure CA fallback")
+            assert_true(len(calls) == 2, "expected configure to retry TLS with CA bundle")
+    finally:
+        configure.urllib.request.urlopen = old_configure_urlopen
+        configure.ssl.create_default_context = old_configure_context
+        if old_configure_ca is None:
+            os.environ.pop("CODEX_RELAY_CA_FILE", None)
+        else:
+            os.environ["CODEX_RELAY_CA_FILE"] = old_configure_ca
+
     fake_enroll = FakeTelegram()
     relay.handle_message(
         fake_enroll,
@@ -262,7 +293,36 @@ def run_tests() -> int:
     assert_true("deep check: /tools" in health, "expected health to point at deep check")
 
     old_urlopen = relay.urllib.request.urlopen
+    old_context = relay.ssl.create_default_context
     try:
+        with tempfile.NamedTemporaryFile() as ca_file:
+            old_ca = os.environ.get("CODEX_RELAY_CA_FILE")
+            try:
+                os.environ["CODEX_RELAY_CA_FILE"] = ca_file.name
+                calls = []
+
+                def fake_relay_tls_urlopen(*_args: object, **kwargs: object) -> FakeResponse:
+                    calls.append(kwargs)
+                    if "context" not in kwargs:
+                        raise urllib.error.URLError(
+                            ssl.SSLError("[SSL: CERTIFICATE_VERIFY_FAILED] certificate verify failed")
+                        )
+                    return FakeResponse([b'{"ok": true, "result": {"id": 1}}'])
+
+                relay.ssl.create_default_context = lambda cafile=None: ("context", cafile)
+                relay.urllib.request.urlopen = fake_relay_tls_urlopen
+                assert_true(
+                    relay.TelegramAPI("token").call("getMe")["result"]["id"] == 1,
+                    "expected runtime CA fallback",
+                )
+                assert_true(len(calls) == 2, "expected runtime to retry TLS with CA bundle")
+            finally:
+                if old_ca is None:
+                    os.environ.pop("CODEX_RELAY_CA_FILE", None)
+                else:
+                    os.environ["CODEX_RELAY_CA_FILE"] = old_ca
+
+        relay.ssl.create_default_context = old_context
         relay.urllib.request.urlopen = lambda *_args, **_kwargs: FakeResponse([b"ok"])
         assert_true(relay.TelegramAPI("token").download_file("file.jpg", max_bytes=2) == b"ok", "expected bounded download")
         relay.urllib.request.urlopen = lambda *_args, **_kwargs: FakeResponse([b"abc"])
@@ -281,6 +341,7 @@ def run_tests() -> int:
             raise SystemExit("expected oversized content-length failure")
     finally:
         relay.urllib.request.urlopen = old_urlopen
+        relay.ssl.create_default_context = old_context
 
     job = relay.RelayJob(123, "main", 2)
     relay.register_job(job)
