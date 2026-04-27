@@ -286,6 +286,7 @@ def run_tests() -> int:
     assert_true("reply style: brief" in status, "expected reply style status")
     assert_true("group chats: disabled" in status, "expected group chat status")
     assert_true("reasoning effort: xhigh" in status, "expected default xhigh reasoning status")
+    assert_true("gemini assist: disabled" in status, "expected Gemini status")
     assert_true("running jobs: 0" in status, "expected running job count")
     assert_true("last run: ok; 1.2s; 1 image" in status, "expected last-run latency status")
     health = relay.health_text()
@@ -424,6 +425,55 @@ def run_tests() -> int:
             data["threads_by_chat"]["123"]["main"]["reply_style"] == "brief",
             "expected /brief to persist style",
         )
+        natural_project = Path(tmp) / "natural-project"
+        natural_project.mkdir()
+        original_gemini_plan_for_message = relay.gemini_plan_for_message
+        original_start_background_job = relay.start_background_job
+        old_gemini_key = os.environ.get("CODEX_RELAY_GEMINI_API_KEY")
+        os.environ["CODEX_RELAY_GEMINI_API_KEY"] = "fake-gemini-key"
+        natural_jobs = []
+
+        def fake_gemini_plan_for_message(*_args: object) -> dict[str, object]:
+            return {
+                "actions": [
+                    {"type": "set_workdir", "value": str(natural_project)},
+                    {"type": "run_codex", "prompt": "Run a security audit."},
+                ]
+            }
+
+        def fake_natural_start_background_job(*args: object, **kwargs: object) -> None:
+            natural_jobs.append((args, kwargs))
+
+        relay.gemini_plan_for_message = fake_gemini_plan_for_message
+        relay.start_background_job = fake_natural_start_background_job
+        try:
+            relay.handle_message(
+                fake_style,
+                {
+                    "message_id": 5,
+                    "chat": {"id": 123, "type": "private"},
+                    "from": {"id": 1},
+                    "text": "set my dir to this project and run a security audit",
+                },
+                {1},
+                {123},
+                threads_path,
+            )
+        finally:
+            relay.gemini_plan_for_message = original_gemini_plan_for_message
+            relay.start_background_job = original_start_background_job
+            if old_gemini_key is None:
+                os.environ.pop("CODEX_RELAY_GEMINI_API_KEY", None)
+            else:
+                os.environ["CODEX_RELAY_GEMINI_API_KEY"] = old_gemini_key
+        data = relay.read_threads(threads_path)
+        assert_true(
+            data["threads_by_chat"]["123"]["main"]["workdir"] == str(natural_project.resolve()),
+            "expected Gemini natural command to update workdir",
+        )
+        assert_true(natural_jobs, "expected Gemini natural command to start Codex job")
+        assert_true(natural_jobs[-1][0][5] == "Run a security audit.", "expected planned Codex prompt")
+
         relay.handle_message(
             fake_style,
             {
@@ -554,6 +604,27 @@ def run_tests() -> int:
         assert_true("SECRET_TOKEN_SHOULD_NOT_LEAK" not in answer, "expected stderr redaction")
         assert_true("exit 9" in answer, "expected exit code in sanitized failure")
         assert_true(stats["last_status"] == "failed", "expected failed status")
+
+        old_gemini_key = os.environ.get("CODEX_RELAY_GEMINI_API_KEY")
+        original_gemini_generate = relay.gemini_generate
+        os.environ["CODEX_RELAY_GEMINI_API_KEY"] = "fake-gemini-key"
+        relay.gemini_generate = lambda *_args, **_kwargs: "Polished answer"
+        try:
+            assert_true(
+                relay.gemini_polish_answer("prompt", "raw answer", {"workdir": tmp}) == "Polished answer",
+                "expected Gemini answer polish",
+            )
+            assert_true(
+                relay.gemini_polish_answer("prompt", "SECRET_TOKEN=value", {"workdir": tmp}) == "SECRET_TOKEN=value",
+                "expected Gemini polish to skip sensitive text",
+            )
+            assert_true(not relay.gemini_allows_text("set OPENAI_API_KEY=sk-12345678901234567890"), "expected Gemini secret guard")
+        finally:
+            relay.gemini_generate = original_gemini_generate
+            if old_gemini_key is None:
+                os.environ.pop("CODEX_RELAY_GEMINI_API_KEY", None)
+            else:
+                os.environ["CODEX_RELAY_GEMINI_API_KEY"] = old_gemini_key
 
         slow_codex = Path(tmp) / "slow-codex"
         slow_codex.write_text(

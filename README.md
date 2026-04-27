@@ -60,6 +60,26 @@ open "/Applications/Python 3.x/Install Certificates.command"
 
 Codex Relay also retries Telegram HTTPS calls with the active Python CA path, `certifi` when installed, and common macOS/Homebrew CA bundles. On managed networks that use HTTPS inspection, set `CODEX_RELAY_CA_FILE=/path/to/your-ca.pem` in `.env` instead of disabling TLS verification.
 
+
+### Optional Gemini Assist
+
+After the first install, you can add a Gemini API key to make Telegram behave more like a mobile control harness for Codex:
+
+```bash
+CODEX_RELAY_GEMINI_API_KEY=your-gemini-api-key
+CODEX_RELAY_GEMINI_MODEL=gemini-3.1-flash-lite-preview
+CODEX_RELAY_GEMINI_NATURAL_COMMANDS=true
+CODEX_RELAY_GEMINI_POLISH=true
+```
+
+Then run:
+
+```bash
+./scripts/install_launch_agent.sh
+```
+
+With Gemini assist enabled, natural messages can map to relay actions before Codex runs. For example, `set my dir to /code/codex-relay and run a security audit` can set the active folder and start a Codex audit job. Codex still performs the repo work; Gemini only plans safe relay actions and optionally rewrites Codex's final answer to be easier to read on a phone. Messages that look like tokens, passwords, private keys, or `.env` content bypass Gemini and go straight to Codex. Use `/gemini` in Telegram to check the status.
+
 Then DM your bot:
 
 ```text
@@ -123,6 +143,7 @@ The demo proves the repo can run its smoke path without a Telegram token, local 
 /brief        terse replies for this thread
 /verbose      detailed replies for this thread
 /update       show local update command
+/gemini       optional Gemini assist status
 /reset        clear the current Codex session
 /ping         bridge check
 ```

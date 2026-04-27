@@ -34,12 +34,43 @@ DEFAULT_TIMEOUT_SECONDS = 600
 DEFAULT_MAX_IMAGE_BYTES = 20 * 1024 * 1024
 DEFAULT_IMAGE_RETENTION_DAYS = 7
 MAX_IMAGES_PER_MESSAGE = 4
+DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
+DEFAULT_GEMINI_TIMEOUT_SECONDS = 20
 DEFAULT_REASONING_EFFORT = "xhigh"
 REASONING_EFFORTS = {"low", "medium", "high", "xhigh"}
 DEFAULT_REPLY_STYLE = "brief"
 REPLY_STYLES = {"brief", "verbose"}
 SESSION_RE = re.compile(r"session id:\s*([0-9a-fA-F-]{36})", re.IGNORECASE)
 THREAD_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,39}$")
+GEMINI_ACTIONS = {
+    "none",
+    "set_workdir",
+    "new_thread",
+    "use_thread",
+    "reset_thread",
+    "run_codex",
+    "show_status",
+    "show_help",
+}
+GEMINI_SENSITIVE_TERMS = {
+    ".env",
+    "api key",
+    "apikey",
+    "authorization:",
+    "bearer ",
+    "gemini_api_key",
+    "openai_api_key",
+    "password",
+    "private key",
+    "secret",
+    "ssh key",
+    "telegram_bot_token",
+    "token",
+    "x-goog-api-key",
+}
+GEMINI_SECRET_VALUE_RE = re.compile(
+    r"(sk-[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{20,}|[0-9]{8,10}:[A-Za-z0-9_-]{30,})"
+)
 STARTED_AT = time.time()
 THREADS_LOCK = threading.Lock()
 SHUTDOWN_EVENT = threading.Event()
@@ -835,8 +866,12 @@ def resolve_workdir(raw: str, current: str) -> Path:
         raise ValueError("Give me a folder, like `/cd Projects/my-repo`.")
     if value == ".":
         path = Path(current)
-    elif value.startswith("/") or value.startswith("~"):
+    elif value.startswith("~"):
         path = Path(value).expanduser()
+    elif value.startswith("/"):
+        path = Path(value)
+        if not path.exists() and (value == "/code" or value.startswith("/code/")):
+            path = Path.home() / value.lstrip("/")
     else:
         path = Path.home() / value
     path = path.resolve()
@@ -866,6 +901,365 @@ def authorized(
         return user_id in allowed_users
     if allowed_chats:
         return chat_id in allowed_chats
+    return False
+
+
+def gemini_api_key() -> str:
+    return (
+        os.environ.get("CODEX_RELAY_GEMINI_API_KEY", "").strip()
+        or os.environ.get("GEMINI_API_KEY", "").strip()
+    )
+
+
+def gemini_configured() -> bool:
+    return bool(gemini_api_key())
+
+
+def gemini_enabled() -> bool:
+    if not gemini_configured():
+        return False
+    return env_bool("CODEX_RELAY_GEMINI_ENABLED", True)
+
+
+def gemini_natural_commands_enabled() -> bool:
+    return gemini_enabled() and env_bool("CODEX_RELAY_GEMINI_NATURAL_COMMANDS", True)
+
+
+def gemini_polish_enabled() -> bool:
+    return gemini_enabled() and env_bool("CODEX_RELAY_GEMINI_POLISH", True)
+
+
+def gemini_model() -> str:
+    return os.environ.get("CODEX_RELAY_GEMINI_MODEL", DEFAULT_GEMINI_MODEL).strip() or DEFAULT_GEMINI_MODEL
+
+
+def gemini_allows_text(*values: str) -> bool:
+    combined = "\n".join(value for value in values if value)
+    if not combined.strip():
+        return True
+    lowered = combined.lower()
+    if any(term in lowered for term in GEMINI_SENSITIVE_TERMS):
+        return False
+    return GEMINI_SECRET_VALUE_RE.search(combined) is None
+
+
+def gemini_timeout() -> int:
+    return max(1, env_int("CODEX_RELAY_GEMINI_TIMEOUT_SECONDS", DEFAULT_GEMINI_TIMEOUT_SECONDS))
+
+
+def gemini_response_text(payload: dict[str, Any]) -> str:
+    candidates = payload.get("candidates") or []
+    if not candidates:
+        raise RuntimeError("Gemini returned no candidates")
+    parts = ((candidates[0].get("content") or {}).get("parts") or [])
+    text_parts = [str(part.get("text") or "") for part in parts if part.get("text")]
+    text = "".join(text_parts).strip()
+    if not text:
+        raise RuntimeError("Gemini returned no text")
+    return text
+
+
+def gemini_generate(prompt: str, response_schema: Optional[dict[str, Any]] = None) -> str:
+    key = gemini_api_key()
+    if not key:
+        raise RuntimeError("Gemini API key is not configured")
+    model = gemini_model()
+    url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        + urllib.parse.quote(model, safe="")
+        + ":generateContent"
+    )
+    generation_config: dict[str, Any] = {"temperature": 0.2}
+    if response_schema is not None:
+        generation_config.update(
+            {
+                "responseMimeType": "application/json",
+                "responseJsonSchema": response_schema,
+            }
+        )
+    body = {
+        "contents": [
+            {
+                "role": "user",
+                "parts": [{"text": prompt}],
+            }
+        ],
+        "generationConfig": generation_config,
+    }
+    request = urllib.request.Request(
+        url,
+        data=json.dumps(body).encode(),
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": key,
+        },
+        method="POST",
+    )
+    try:
+        with telegram_urlopen(request, timeout=gemini_timeout()) as response:
+            payload = json.loads(response.read().decode())
+    except urllib.error.HTTPError as exc:
+        raise RuntimeError(f"Gemini HTTP {exc.code}") from exc
+    except urllib.error.URLError as exc:
+        raise RuntimeError(f"Gemini network error: {exc.reason}") from exc
+    return gemini_response_text(payload)
+
+
+GEMINI_PLAN_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "reply": {
+            "type": "string",
+            "description": "Short optional note to send before any Codex job starts.",
+        },
+        "actions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "enum": sorted(GEMINI_ACTIONS),
+                        "description": "The relay action to run.",
+                    },
+                    "value": {
+                        "type": "string",
+                        "description": "Thread name, folder path, or empty string, depending on action type.",
+                    },
+                    "prompt": {
+                        "type": "string",
+                        "description": "Prompt to send to Codex for run_codex actions.",
+                    },
+                },
+                "required": ["type"],
+            },
+        },
+    },
+    "required": ["actions"],
+}
+
+
+def gemini_plan_prompt(
+    text: str,
+    active_name: str,
+    thread: dict[str, Any],
+    threads: dict[str, dict[str, Any]],
+) -> str:
+    thread_lines = []
+    for name in sorted(threads)[:20]:
+        item = threads[name]
+        status = "started" if item.get("session_id") else "new"
+        thread_lines.append(f"- {name}: {status}; folder={item.get('workdir') or default_workdir()}")
+    thread_text = "\n".join(thread_lines) or "- main: new"
+    return f"""You are Codex Relay's mobile control planner.
+
+Translate a private Telegram message into safe relay actions. The relay controls Codex locally; Codex does all repo/file/test/security work. You only choose relay actions.
+
+Current active thread: {active_name}
+Current folder: {thread.get('workdir') or default_workdir()}
+Known threads:
+{thread_text}
+
+Allowed actions:
+- set_workdir: set the active thread folder. For user shorthand like /code/name or code/name, return code/name or ~/code/name, not the filesystem root /code unless they clearly mean an absolute path.
+- new_thread: create and switch to a named thread.
+- use_thread: switch to an existing named thread.
+- reset_thread: clear the current Codex session id.
+- run_codex: start a Codex job with a clear prompt. Use this for audits, edits, summaries, research in a repo, diagnostics, and normal work.
+- show_status: show current relay status.
+- show_help: show relay command help.
+- none: use only when the message is not actionable.
+
+Rules:
+- Return JSON only.
+- Prefer one set_workdir followed by one run_codex for messages like "set my dir to X and run Y".
+- Do not invent unsupported slash commands.
+- Do not request or expose secrets, tokens, raw logs, auth files, or private transcripts.
+- If the user asks for destructive, public, payment, account, medical, legal, or financial actions, still send the request to Codex as run_codex and let Codex stop at the confirmation boundary.
+- Keep run_codex prompts direct and complete enough for Codex to execute.
+
+Telegram message:
+{text}
+"""
+
+
+def validate_gemini_plan(raw: Any, original_text: str) -> dict[str, Any]:
+    if not isinstance(raw, dict):
+        return {"reply": "", "actions": []}
+    actions: list[dict[str, str]] = []
+    for item in raw.get("actions") or []:
+        if not isinstance(item, dict):
+            continue
+        action_type = str(item.get("type") or "").strip()
+        if action_type not in GEMINI_ACTIONS or action_type == "none":
+            continue
+        action = {
+            "type": action_type,
+            "value": str(item.get("value") or "").strip()[:500],
+            "prompt": str(item.get("prompt") or "").strip()[:6000],
+        }
+        if action_type == "run_codex" and not action["prompt"]:
+            action["prompt"] = original_text
+        actions.append(action)
+        if len(actions) >= 4:
+            break
+    return {"reply": str(raw.get("reply") or "").strip()[:1000], "actions": actions}
+
+
+def gemini_plan_for_message(
+    text: str,
+    active_name: str,
+    thread: dict[str, Any],
+    threads: dict[str, dict[str, Any]],
+) -> dict[str, Any]:
+    prompt = gemini_plan_prompt(text, active_name, thread, threads)
+    response_text = gemini_generate(prompt, GEMINI_PLAN_SCHEMA)
+    return validate_gemini_plan(json.loads(response_text), text)
+
+
+def gemini_polish_answer(prompt_text: str, answer: str, thread: dict[str, Any]) -> str:
+    if not gemini_polish_enabled() or not answer.strip():
+        return answer
+    if not gemini_allows_text(prompt_text, answer):
+        return answer
+    prompt = f"""Rewrite this Codex Relay reply for a private Telegram chat.
+
+Goal: make it more human, readable, and easy to act on from a phone.
+
+Rules:
+- Preserve every factual claim, command, path, file name, warning, blocker, and verification result.
+- Do not add new facts or pretend extra work happened.
+- Do not reveal or request secrets.
+- Keep it concise. Use short paragraphs or bullets only when they improve scanability.
+
+Original user request:
+{prompt_text}
+
+Active folder:
+{thread.get('workdir') or default_workdir()}
+
+Codex reply:
+{answer}
+"""
+    try:
+        polished = gemini_generate(prompt).strip()
+    except Exception:
+        return answer
+    return polished or answer
+
+
+def execute_gemini_plan(
+    api: TelegramAPI,
+    chat_id: int,
+    message_id: Optional[int],
+    threads_path: Path,
+    plan: dict[str, Any],
+    original_text: str,
+) -> bool:
+    actions = plan.get("actions") or []
+    if not actions:
+        return False
+    notes: list[str] = []
+    for action in actions:
+        action_type = action.get("type")
+        value = str(action.get("value") or "").strip()
+        if action_type == "show_help":
+            api.send_message(chat_id, command_help(), message_id)
+            return True
+        if action_type == "show_status":
+            with THREADS_LOCK:
+                _data, _active_name, thread = active_state(threads_path, chat_id)
+            api.send_message(chat_id, status_text(thread, chat_id), message_id)
+            return True
+        if action_type == "new_thread":
+            try:
+                name = normalize_thread_name(value)
+            except ValueError as exc:
+                api.send_message(chat_id, str(exc), message_id)
+                return True
+            with THREADS_LOCK:
+                data, _active_name, _thread = active_state(threads_path, chat_id)
+                thread = ensure_thread(data, chat_id, name)
+                thread["session_id"] = ""
+                thread["updated_at"] = now_iso()
+                set_active_thread(data, chat_id, name)
+                write_threads(threads_path, data)
+            notes.append(f"New thread: {name}")
+            continue
+        if action_type == "use_thread":
+            try:
+                name = normalize_thread_name(value)
+            except ValueError as exc:
+                api.send_message(chat_id, str(exc), message_id)
+                return True
+            with THREADS_LOCK:
+                data, _active_name, _thread = active_state(threads_path, chat_id)
+                threads = chat_threads(data, chat_id)
+                if name not in threads:
+                    api.send_message(chat_id, f"No thread named `{name}`. Use `/new {name}`.", message_id)
+                    return True
+                set_active_thread(data, chat_id, name)
+                write_threads(threads_path, data)
+            notes.append(f"Using thread: {name}")
+            continue
+        if action_type == "reset_thread":
+            with THREADS_LOCK:
+                data, active_name, thread = active_state(threads_path, chat_id)
+            busy = busy_thread_message(chat_id, active_name)
+            if busy:
+                api.send_message(chat_id, busy, message_id)
+                return True
+            with THREADS_LOCK:
+                data, active_name, thread = active_state(threads_path, chat_id)
+                thread["session_id"] = ""
+                thread["updated_at"] = now_iso()
+                write_threads(threads_path, data)
+            notes.append(f"Reset thread: {active_name}")
+            continue
+        if action_type == "set_workdir":
+            with THREADS_LOCK:
+                data, active_name, thread = active_state(threads_path, chat_id)
+                current_workdir = str(thread.get("workdir") or default_workdir())
+            busy = busy_thread_message(chat_id, active_name)
+            if busy:
+                api.send_message(chat_id, busy, message_id)
+                return True
+            try:
+                path = resolve_workdir(value, current_workdir)
+            except ValueError as exc:
+                api.send_message(chat_id, str(exc), message_id)
+                return True
+            with THREADS_LOCK:
+                data, active_name, thread = active_state(threads_path, chat_id)
+                thread["workdir"] = str(path)
+                thread["updated_at"] = now_iso()
+                write_threads(threads_path, data)
+            notes.append(f"Folder set:\n{path}")
+            continue
+        if action_type == "run_codex":
+            prompt = str(action.get("prompt") or "").strip() or original_text
+            with THREADS_LOCK:
+                _data, active_name, thread = active_state(threads_path, chat_id)
+            busy = busy_thread_message(chat_id, active_name)
+            if busy:
+                api.send_message(chat_id, busy, message_id)
+                return True
+            preface = "\n\n".join(notes + ([plan.get("reply", "").strip()] if plan.get("reply") else []))
+            if preface:
+                api.send_message(chat_id, preface, message_id)
+            start_background_job(
+                api,
+                chat_id,
+                threads_path,
+                active_name,
+                thread,
+                prompt,
+                reply_to_message_id=message_id,
+            )
+            return True
+    if notes or plan.get("reply"):
+        api.send_message(chat_id, "\n\n".join(notes + ([plan.get("reply", "").strip()] if plan.get("reply") else [])), message_id)
+        return True
     return False
 
 
@@ -1187,6 +1581,7 @@ def command_help() -> str:
             "/verbose - detailed replies for this thread",
             "/update - show local update command",
             "/capabilities - show what this remote can do",
+            "/gemini - show optional Gemini assist status",
             "/try - show good first prompts",
             "/tools - probe Codex tool access",
             "/reset - restart the current thread",
@@ -1236,6 +1631,12 @@ def health_text() -> str:
         ),
         ("reply style", True, reply_style_default(), ""),
         (
+            "gemini",
+            True,
+            f"enabled; {gemini_model()}" if gemini_enabled() else "disabled",
+            "",
+        ),
+        (
             "model",
             True,
             f"{os.environ.get('CODEX_TELEGRAM_MODEL', 'gpt-5.5')} / "
@@ -1268,6 +1669,7 @@ def status_text(thread: dict[str, Any], chat_id: Optional[int] = None) -> str:
         f"group chats: {'enabled' if env_bool('CODEX_TELEGRAM_ALLOW_GROUP_CHATS', False) else 'disabled'}",
         f"typing interval: {max(1, env_int('CODEX_TELEGRAM_TYPING_INTERVAL_SECONDS', 4))}s",
         "telegram images: enabled",
+        f"gemini assist: {'enabled' if gemini_enabled() else 'disabled'}",
         f"running jobs: {len(running)}",
     ]
     lines.extend(last_run_lines(thread))
@@ -1488,6 +1890,8 @@ def run_job_worker(
             append_history_event(
                 history_event_from_stats(chat_id, thread_name, thread, job, stats)
             )
+        if stats.get("last_status") == "ok":
+            answer = gemini_polish_answer(prompt_text, answer, thread)
         api.send_message(chat_id, answer)
     except Exception as exc:
         append_history_event(
@@ -1847,6 +2251,19 @@ def handle_message(
         api.send_message(chat_id, try_text(), message_id)
         return
 
+    if command in {"/gemini", "/assistant"}:
+        lines = [
+            "Gemini assist:",
+            f"- status: {'enabled' if gemini_enabled() else 'disabled'}",
+            f"- model: {gemini_model()}",
+            f"- natural commands: {'enabled' if gemini_natural_commands_enabled() else 'disabled'}",
+            f"- polish: {'enabled' if gemini_polish_enabled() else 'disabled'}",
+        ]
+        if not gemini_configured():
+            lines.append("- setup: add CODEX_RELAY_GEMINI_API_KEY to .env and run ./scripts/install_launch_agent.sh")
+        api.send_message(chat_id, "\n".join(lines), message_id)
+        return
+
     if command == "/update":
         api.send_message(chat_id, update_text(), message_id)
         return
@@ -1907,6 +2324,17 @@ def handle_message(
         api.send_message(chat_id, "Unknown command. Use /help.", message_id)
         return
 
+    if gemini_natural_commands_enabled() and not image_specs and gemini_allows_text(text):
+        try:
+            with THREADS_LOCK:
+                _data, active_name, thread = active_state(threads_path, chat_id)
+                threads = dict(chat_threads(_data, chat_id))
+            plan = gemini_plan_for_message(text, active_name, thread, threads)
+            if execute_gemini_plan(api, chat_id, message_id, threads_path, plan, text):
+                return
+        except Exception:
+            pass
+
     with THREADS_LOCK:
         _data, active_name, thread = active_state(threads_path, chat_id)
     image_paths: list[Path] = []
@@ -1949,6 +2377,10 @@ def check_config() -> int:
     print(f"model={os.environ.get('CODEX_TELEGRAM_MODEL', 'gpt-5.5')}")
     print(f"reasoning_effort={env_choice('CODEX_TELEGRAM_REASONING_EFFORT', DEFAULT_REASONING_EFFORT, REASONING_EFFORTS)}")
     print(f"reply_style={reply_style_default()}")
+    print(f"gemini_enabled={gemini_enabled()}")
+    print(f"gemini_model={gemini_model()}")
+    print(f"gemini_natural_commands={gemini_natural_commands_enabled()}")
+    print(f"gemini_polish={gemini_polish_enabled()}")
     print(f"approval={os.environ.get('CODEX_TELEGRAM_APPROVAL', 'never')}")
     print(f"timeout_seconds={env_int('CODEX_TELEGRAM_TIMEOUT_SECONDS', DEFAULT_TIMEOUT_SECONDS)}")
     print(f"reply_threading={env_bool('CODEX_TELEGRAM_REPLY_TO_MESSAGES', False)}")
