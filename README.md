@@ -8,6 +8,8 @@ Give Codex a mission control room for your Mac. It finds your projects, creates 
 
 Unofficial project. Not affiliated with OpenAI or Telegram.
 
+![Codex Mission Control control-room hero](assets/visuals/hero-control-room.png)
+
 ## The Product
 
 ```text
@@ -42,6 +44,8 @@ cmc claim BROWSER OTHER "also using the browser"
 
 That is the product: projects become missions, shared surfaces get lanes, and risky actions become exact approval packets before anything leaves your Mac.
 
+![Projects become missions](assets/visuals/project-discovery.png)
+
 ## Install
 
 Requirements:
@@ -68,6 +72,8 @@ cmc status
 cmc lanes
 cmc packet
 ```
+
+![First local dashboard visual](assets/visuals/dashboard-instrument.png)
 
 Install the phone remote during setup or later:
 
@@ -122,6 +128,18 @@ Mission Control Relay keeps the old Telegram remote idea, now pointed at the hub
 ```
 
 Normal Telegram messages still go to local Codex through your Mac. Image captions still attach the image to Codex. Relay remains allow-listed to your private Telegram user/chat.
+
+![Mission Control Relay phone remote](assets/visuals/phone-remote.png)
+
+## Visual Model
+
+The product is deliberately visual but not decorative: one hub, real project folders, shared-surface traffic, exact approval packets, and a clear local boundary.
+
+![Shared-surface lane lock](assets/visuals/lane-lock.png)
+
+![Go/no-go approval packet](assets/visuals/approval-packet.png)
+
+![Local-only boundary](assets/visuals/local-only.png)
 
 ## Demo
 

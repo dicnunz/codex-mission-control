@@ -18,7 +18,7 @@ CMC_PROJECTS="$("$ROOT/cmc" projects 2>&1 || true)"
 CMC_PACKET="$("$ROOT/cmc" packet 2>&1 || true)"
 UPDATED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-STATUS_OUTPUT="$STATUS_OUTPUT" CMC_STATUS="$CMC_STATUS" CMC_DOCTOR="$CMC_DOCTOR" CMC_LANES="$CMC_LANES" CMC_PROJECTS="$CMC_PROJECTS" CMC_PACKET="$CMC_PACKET" UPDATED_AT="$UPDATED_AT" OUT="$OUT" python3 - <<'PY'
+STATUS_OUTPUT="$STATUS_OUTPUT" CMC_STATUS="$CMC_STATUS" CMC_DOCTOR="$CMC_DOCTOR" CMC_LANES="$CMC_LANES" CMC_PROJECTS="$CMC_PROJECTS" CMC_PACKET="$CMC_PACKET" UPDATED_AT="$UPDATED_AT" OUT="$OUT" ROOT="$ROOT" python3 - <<'PY'
 import html
 import os
 import re
@@ -32,6 +32,9 @@ cmc_projects = os.environ["CMC_PROJECTS"]
 cmc_packet = os.environ["CMC_PACKET"]
 updated_at = os.environ["UPDATED_AT"]
 out = Path(os.environ["OUT"])
+root = Path(os.environ["ROOT"])
+visual_path = root / "assets/visuals/dashboard-instrument.png"
+icon_path = root / "assets/visuals/mission-control-icon.png"
 
 def find(pattern: str, text: str, fallback: str = "0") -> str:
     match = re.search(pattern, text)
@@ -89,6 +92,13 @@ commands = "\n".join(
     ]
 )
 
+visual_html = ""
+if visual_path.exists():
+    visual_html = (
+        f"<section class='visual-hero'><img src='{html.escape(visual_path.as_uri(), quote=True)}' "
+        "alt='Codex Mission Control dashboard visual'></section>"
+    )
+
 doc = f"""<!doctype html>
 <html lang="en">
 <meta charset="utf-8">
@@ -117,6 +127,18 @@ doc = f"""<!doctype html>
     border-bottom: 1px solid #27272a;
     padding-bottom: 28px;
   }}
+  .visual-hero {{
+    margin: 28px 0 0;
+    border: 1px solid #27272a;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #0b0b0b;
+  }}
+  .visual-hero img {{
+    display: block;
+    width: 100%;
+    height: auto;
+  }}
   .eyebrow {{
     color: #8b8b8b;
     font-size: 12px;
@@ -139,6 +161,16 @@ doc = f"""<!doctype html>
     color: #a7f3d0;
     font-family: Menlo, monospace;
     white-space: nowrap;
+  }}
+  .brand {{
+    display: flex;
+    gap: 14px;
+    align-items: center;
+  }}
+  .brand img {{
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
   }}
   .grid {{
     display: grid;
@@ -215,12 +247,16 @@ doc = f"""<!doctype html>
 <main>
   <header>
     <div>
-      <div class="eyebrow">Codex Mission Control</div>
+      <div class="brand">
+        {f"<img src='{html.escape(icon_path.as_uri(), quote=True)}' alt=''>" if icon_path.exists() else ""}
+        <div class="eyebrow">Codex Mission Control</div>
+      </div>
       <h1>Your Codex control room.</h1>
       <p>{html.escape(hub)}</p>
     </div>
     <div class="pill">{html.escape(updated_at)}</div>
   </header>
+  {visual_html}
   <section class="grid">{cards}</section>
   <section class="row">
     <div class="panel">

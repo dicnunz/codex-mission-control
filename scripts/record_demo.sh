@@ -23,41 +23,27 @@ need ffmpeg
 write_social() {
   cat > "$SOCIAL" <<'SVG'
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-label="Codex Mission Control social card">
-  <rect width="1280" height="640" fill="#050505"/>
-  <rect x="54" y="44" width="1172" height="552" rx="18" fill="#101010" stroke="#2b2b2b"/>
-  <text x="104" y="122" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="60" font-weight="700">Stop running Codex like loose chats.</text>
-  <text x="108" y="178" fill="#b8b8b8" font-family="Arial, sans-serif" font-size="28">Projects become missions. Shared surfaces get lanes.</text>
-  <text x="108" y="226" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="28">Local-first Mission Control. Optional Telegram remote.</text>
-
-  <g transform="translate(108 280)">
-    <rect width="320" height="246" rx="28" fill="#050505" stroke="#303030"/>
-    <rect x="24" y="26" width="272" height="42" rx="20" fill="#1f2937"/>
-    <circle cx="48" cy="47" r="10" fill="#5eead4"/>
-    <text x="70" y="54" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="17" font-weight="700">Mission Control</text>
-    <rect x="34" y="92" width="236" height="38" rx="16" fill="#2563eb"/>
-    <text x="54" y="117" fill="#ffffff" font-family="Menlo, monospace" font-size="15">cmc discover</text>
-    <rect x="82" y="148" width="204" height="58" rx="18" fill="#171717" stroke="#333333"/>
-    <text x="102" y="174" fill="#d4d4d4" font-family="Menlo, monospace" font-size="14">projects indexed</text>
-    <text x="102" y="194" fill="#22c55e" font-family="Menlo, monospace" font-size="14">lanes clear</text>
+  <defs>
+    <clipPath id="frame"><rect x="54" y="44" width="1172" height="552" rx="18"/></clipPath>
+    <linearGradient id="shade" x1="0" x2="1">
+      <stop offset="0%" stop-color="#050505" stop-opacity=".94"/>
+      <stop offset="46%" stop-color="#050505" stop-opacity=".78"/>
+      <stop offset="100%" stop-color="#050505" stop-opacity=".12"/>
+    </linearGradient>
+  </defs>
+  <g clip-path="url(#frame)">
+    <rect x="54" y="44" width="1172" height="552" fill="url(#shade)"/>
   </g>
-
-  <text x="476" y="414" fill="#d4d4d4" font-family="Arial, sans-serif" font-size="46" font-weight="700">-&gt;</text>
-
-  <g transform="translate(562 258)">
-    <rect width="560" height="278" rx="18" fill="#050505" stroke="#303030"/>
-    <rect width="560" height="44" rx="18" fill="#1a1a1a"/>
-    <circle cx="30" cy="22" r="6" fill="#ef4444"/>
-    <circle cx="52" cy="22" r="6" fill="#f59e0b"/>
-    <circle cx="74" cy="22" r="6" fill="#22c55e"/>
-    <text x="34" y="86" fill="#a7f3d0" font-family="Menlo, monospace" font-size="17">$ cmc claim BROWSER FLIGHT demo</text>
-    <text x="34" y="126" fill="#e5e5e5" font-family="Menlo, monospace" font-size="17">project work stays local</text>
-    <text x="34" y="160" fill="#e5e5e5" font-family="Menlo, monospace" font-size="17">shared surfaces serialize</text>
-    <text x="34" y="194" fill="#e5e5e5" font-family="Menlo, monospace" font-size="17">approval packets before risk</text>
-    <rect x="34" y="224" width="244" height="34" rx="17" fill="#f5f5f5"/>
-    <text x="54" y="247" fill="#111111" font-family="Arial, sans-serif" font-size="15" font-weight="700">unofficial and local-first</text>
-  </g>
-
-  <text x="108" y="574" fill="#8b8b8b" font-family="Menlo, monospace" font-size="21">github.com/dicnunz/codex-mission-control</text>
+  <rect x="54" y="44" width="1172" height="552" rx="18" fill="none" stroke="#2b2b2b"/>
+  <circle cx="108" cy="108" r="12" fill="#5eead4"/>
+  <circle cx="146" cy="108" r="12" fill="#f59e0b"/>
+  <text x="104" y="192" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="64" font-weight="700">Stop running Codex</text>
+  <text x="104" y="264" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="64" font-weight="700">like loose chats.</text>
+  <text x="108" y="330" fill="#d4d4d4" font-family="Arial, sans-serif" font-size="29">Give it a local control room.</text>
+  <text x="108" y="382" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="28">Missions. Lanes. Approval packets.</text>
+  <text x="108" y="432" fill="#b8b8b8" font-family="Arial, sans-serif" font-size="26">Optional Telegram remote.</text>
+  <rect x="108" y="486" width="374" height="46" rx="23" fill="#f5f5f5"/>
+  <text x="132" y="516" fill="#111111" font-family="Arial, sans-serif" font-size="18" font-weight="700">github.com/dicnunz/codex-mission-control</text>
 </svg>
 SVG
 }
@@ -147,7 +133,12 @@ render_svg() {
 
 write_social
 write_transcript
-render_svg "$SOCIAL" "$SOCIAL_PNG"
+render_svg "$SOCIAL" "$TMP/social-overlay.png"
+ffmpeg -y -v error \
+  -i "$ROOT/assets/visuals/hero-control-room.png" \
+  -i "$TMP/social-overlay.png" \
+  -filter_complex "[0:v]scale=1280:640:force_original_aspect_ratio=increase,crop=1280:640[bg];[bg][1:v]overlay=0:0,format=rgba[out]" \
+  -map "[out]" "$SOCIAL_PNG"
 
 write_frame "$TMP/frame1.svg" \
   "CODEX MISSION CONTROL" \

@@ -93,6 +93,21 @@ test -s "$dashboard_path"
 grep -q 'Your Codex control room' "$dashboard_path"
 grep -q 'Surface lanes' "$dashboard_path"
 grep -q 'Copy approval packet' "$dashboard_path"
+grep -q 'dashboard-instrument.png' "$dashboard_path"
+grep -q 'mission-control-icon.png' "$dashboard_path"
+
+for visual in \
+  assets/visuals/hero-control-room.png \
+  assets/visuals/origin-lanes.png \
+  assets/visuals/project-discovery.png \
+  assets/visuals/lane-lock.png \
+  assets/visuals/approval-packet.png \
+  assets/visuals/phone-remote.png \
+  assets/visuals/local-only.png \
+  assets/visuals/dashboard-instrument.png \
+  assets/visuals/mission-control-icon.png; do
+  test -s "$visual"
+done
 
 ./scripts/demo.sh
 ./scripts/fresh_clone_test.sh

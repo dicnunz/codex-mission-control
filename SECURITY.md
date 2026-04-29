@@ -4,6 +4,8 @@ Codex Mission Control is intentionally powerful because it organizes local Codex
 
 Treat Mission Control Relay like SSH into your Mac through Telegram.
 
+![Local-only Mission Control boundary](assets/visuals/local-only.png)
+
 ## Local State
 
 - Mission hub: `~/Codex Mission Control`

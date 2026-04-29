@@ -42,6 +42,31 @@ github.com/dicnunz/codex-mission-control
 
 Attach the clearest demo asset available. Prefer real terminal + Telegram footage over generated visuals.
 
+## Visual Stack
+
+Use generated visuals as proof-shaping, not proof replacement.
+
+Primary:
+
+```text
+assets/visuals/origin-lanes.png
+assets/visuals/hero-control-room.png
+assets/codex-mission-control-demo.mp4
+```
+
+Carousel:
+
+```text
+1. assets/visuals/origin-lanes.png
+2. assets/visuals/project-discovery.png
+3. assets/visuals/lane-lock.png
+4. assets/visuals/approval-packet.png
+5. assets/visuals/phone-remote.png
+6. assets/visuals/local-only.png
+```
+
+Rule: generated plates carry mood and shape; terminal/dashboard/Telegram footage carries proof.
+
 ## Demo Script
 
 Keep it under 45 seconds:
