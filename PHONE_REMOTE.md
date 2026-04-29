@@ -10,7 +10,7 @@ This is better than VNC when the goal is to command Codex, not manually drive a 
 Phone prompt -> Telegram bot -> Mac LaunchAgent -> Codex CLI -> Telegram reply
 ```
 
-The default normal prompt path uses your configured Codex model and reasoning effort through the local Codex app CLI.
+The default normal prompt path uses your configured Codex model and active thinking mode through the local Codex app CLI.
 
 ## Prompts That Fit
 
@@ -36,11 +36,18 @@ Best prompts include a folder, a stopping point, and whether public actions are 
 /tools
 /try
 /jobs
+/queue
+/activity
+/terminal
+/file README.md
+/recover
 /automations
 /history
+/gemini key YOUR_GEMINI_API_KEY
 
 /new school
 /cd Documents
+/think high
 check what class files look important this week
 
 /new portfolio
@@ -51,9 +58,10 @@ make the README feel pinned-worthy
 ## Response Timing
 
 - `/ping`, `/alive`, `/health`, `/policy`, `/screenshot`, `/status`, `/where`, `/list`, `/new`, and `/cd` should feel quick.
-- `/jobs`, `/cancel`, and `/history` should work while Codex is busy.
+- `/jobs`, `/cancel`, `/history`, `/activity`, `/queue`, `/terminal`, and `/file` should work while Codex is busy.
+- New normal requests can queue while the active thread is busy, including saved images. `/forget`, `/forgetphotos`, and `/queue next id` adjust that queue without Gemini.
 - Normal prompts wait for Codex to finish.
-- Normal prompts use your configured Codex model and reasoning effort.
+- Normal prompts use your configured Codex model and active thinking mode.
 - Image, browser, repo-editing, test-running, and desktop/app-control prompts can take tens of seconds or minutes. Desktop/app-control behavior depends on what your local Codex runtime exposes.
 - If the request is public or irreversible, ask Codex to draft and stop before posting, pushing, paying, deleting, or changing accounts.
 
@@ -70,6 +78,8 @@ make the README feel pinned-worthy
 
 This is a local Codex runtime, not a visible Codex Mac app thread. It can use the same signed-in Codex CLI/plugin setup, but it does not mirror the desktop chat UI.
 
-Telegram photos and image documents are saved in the private runtime state directory and attached to the next Codex prompt.
+Telegram photos, photo albums, and image documents are saved in the private runtime state directory and attached to the next Codex prompt or queued request.
+
+Gemini is optional. Slash commands are the primary control surface and work without Gemini; the mobile harness is powered by Flash 3.1 Lite and routes natural language to the same relay actions when configured. After the first install, `/gemini key YOUR_GEMINI_API_KEY` saves the key privately and reloads the relay without using the Mac screen.
 
 It is unofficial, uses your normal Codex/OpenAI account limits, and can only use tools exposed by the local Codex runtime on that Mac.

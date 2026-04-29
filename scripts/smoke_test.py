@@ -60,6 +60,25 @@ class FakeTelegram(relay.TelegramAPI):
             )
         )
 
+    def send_document(
+        self,
+        chat_id: int,
+        path: Path,
+        caption: str = "",
+        reply_to_message_id: Optional[int] = None,
+    ) -> None:
+        self.calls.append(
+            (
+                "sendDocument",
+                {
+                    "chat_id": chat_id,
+                    "path": str(path),
+                    "caption": caption,
+                    "reply_to_message_id": reply_to_message_id,
+                },
+            )
+        )
+
 
 class FakeResponse:
     def __init__(self, chunks: list[bytes], headers: Optional[dict[str, str]] = None) -> None:
@@ -79,9 +98,10 @@ class FakeResponse:
 
 
 ENV_PREFIXES = ("CODEX_TELEGRAM_", "CODEX_RELAY_", "TELEGRAM_")
-ENV_EXACT = {"CODEX_BIN"}
+ENV_EXACT = {"CODEX_BIN", "GEMINI_API_KEY"}
 TEST_ENV = {
     "CODEX_TELEGRAM_MODEL": "gpt-5.5",
+    "CODEX_TELEGRAM_THINKING_MODE": "xhigh",
     "CODEX_TELEGRAM_REASONING_EFFORT": "xhigh",
     "CODEX_TELEGRAM_REPLY_STYLE": "brief",
     "CODEX_TELEGRAM_TIMEOUT_SECONDS": "600",
@@ -134,6 +154,32 @@ def run_tests() -> int:
     assert_true(relay.image_attachment_specs(document_message), "expected image document support")
     assert_true(relay.image_suffix("screen.PNG") == ".png", "expected png suffix")
     assert_true(relay.image_suffix("photo.jpeg") == ".jpg", "expected jpeg normalization")
+    grouped = relay.merge_media_group_messages(
+        [
+            {
+                "message_id": 3,
+                "media_group_id": "album-1",
+                "chat": {"id": 123, "type": "private"},
+                "from": {"id": 1},
+                "photo": [{"file_id": "album-a", "width": 640, "height": 480, "file_size": 1000}],
+            },
+            {
+                "message_id": 4,
+                "media_group_id": "album-1",
+                "chat": {"id": 123, "type": "private"},
+                "from": {"id": 1},
+                "caption": "compare these",
+                "photo": [{"file_id": "album-b", "width": 640, "height": 480, "file_size": 1000}],
+            },
+        ]
+    )
+    grouped_specs = relay.image_attachment_specs(grouped)
+    assert_true(len(grouped_specs) == 2, "expected Telegram media group to preserve multiple images")
+    assert_true(grouped.get("caption") == "compare these", "expected media group caption")
+    assert_true(relay.media_group_key(grouped["_relay_media_group_messages"][0]) == (123, "album-1"), "expected media group key")
+    os.environ["CODEX_TELEGRAM_MAX_IMAGES_PER_MESSAGE"] = "1"
+    assert_true(len(relay.image_attachment_specs(grouped)) == 1, "expected configurable image cap")
+    os.environ.pop("CODEX_TELEGRAM_MAX_IMAGES_PER_MESSAGE", None)
 
     prompt = relay.codex_prompt("what is in this image?", "main", [Path("/tmp/example.png")])
     assert_true("attached to this Codex prompt" in prompt, "expected image prompt note")
@@ -273,6 +319,10 @@ def run_tests() -> int:
     assert_true(fake.calls[-1][1].get("reply_to_message_id") == 999, "expected opt-in reply threading")
     os.environ.pop("CODEX_TELEGRAM_REPLY_TO_MESSAGES", None)
 
+    timeout_api = relay.TelegramAPI("token")
+    timeout_api.call = lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("Telegram request timed out"))
+    assert_true(timeout_api.get_updates(123) == [], "expected polling timeout to be non-fatal")
+
     thread = {
         "name": "main",
         "workdir": "/tmp",
@@ -285,9 +335,10 @@ def run_tests() -> int:
     assert_true("reply threading: disabled" in status, "expected reply threading status")
     assert_true("reply style: brief" in status, "expected reply style status")
     assert_true("group chats: disabled" in status, "expected group chat status")
-    assert_true("reasoning effort: xhigh" in status, "expected default xhigh reasoning status")
+    assert_true("thinking mode: xhigh" in status, "expected default xhigh thinking status")
     assert_true("gemini assist: disabled" in status, "expected Gemini status")
     assert_true("running jobs: 0" in status, "expected running job count")
+    assert_true("pending requests: 0" in status, "expected pending request count")
     assert_true("last run: ok; 1.2s; 1 image" in status, "expected last-run latency status")
     health = relay.health_text()
     assert_true("health:" in health, "expected health output")
@@ -347,6 +398,11 @@ def run_tests() -> int:
     job = relay.RelayJob(123, "main", 2)
     relay.register_job(job)
     try:
+        job.add_progress("?? LaunchAgent")
+        job.add_progress("Running scripts/smoke_test.py")
+        progress = relay.job_progress_text(job)
+        assert_true("?? LaunchAgent" not in progress, "expected noisy Codex fragment hidden from progress")
+        assert_true("Running scripts/smoke_test.py" in progress, "expected useful progress line")
         busy = relay.busy_thread_message(123, "main")
         assert_true("Thread `main` is busy." in busy, "expected busy thread message")
         jobs = relay.jobs_text(123, thread)
@@ -425,6 +481,41 @@ def run_tests() -> int:
             data["threads_by_chat"]["123"]["main"]["reply_style"] == "brief",
             "expected /brief to persist style",
         )
+        relay.handle_message(
+            fake_style,
+            {
+                "message_id": 4,
+                "chat": {"id": 123, "type": "private"},
+                "from": {"id": 1},
+                "text": "/think high",
+            },
+            {1},
+            {123},
+            threads_path,
+        )
+        data = relay.read_threads(threads_path)
+        assert_true(
+            data["threads_by_chat"]["123"]["main"]["thinking_mode"] == "high",
+            "expected /think to persist thread thinking mode",
+        )
+        assert_true("Thinking mode: high" in str(fake_style.calls[-1][1].get("text")), "expected /think reply")
+        relay.handle_message(
+            fake_style,
+            {
+                "message_id": 4,
+                "chat": {"id": 123, "type": "private"},
+                "from": {"id": 1},
+                "text": "/think default",
+            },
+            {1},
+            {123},
+            threads_path,
+        )
+        data = relay.read_threads(threads_path)
+        assert_true(
+            "thinking_mode" not in data["threads_by_chat"]["123"]["main"],
+            "expected /think default to clear thread override",
+        )
         natural_project = Path(tmp) / "natural-project"
         natural_project.mkdir()
         original_gemini_plan_for_message = relay.gemini_plan_for_message
@@ -436,6 +527,7 @@ def run_tests() -> int:
         def fake_gemini_plan_for_message(*_args: object) -> dict[str, object]:
             return {
                 "actions": [
+                    {"type": "set_thinking_mode", "value": "high"},
                     {"type": "set_workdir", "value": str(natural_project)},
                     {"type": "run_codex", "prompt": "Run a security audit."},
                 ]
@@ -471,8 +563,225 @@ def run_tests() -> int:
             data["threads_by_chat"]["123"]["main"]["workdir"] == str(natural_project.resolve()),
             "expected Gemini natural command to update workdir",
         )
+        assert_true(
+            data["threads_by_chat"]["123"]["main"]["thinking_mode"] == "high",
+            "expected Gemini natural command to update thinking mode",
+        )
         assert_true(natural_jobs, "expected Gemini natural command to start Codex job")
         assert_true(natural_jobs[-1][0][5] == "Run a security audit.", "expected planned Codex prompt")
+
+        queue_job = relay.RelayJob(123, "main", 0)
+        relay.register_job(queue_job)
+        original_gemini_plan_for_message = relay.gemini_plan_for_message
+        old_gemini_key = os.environ.get("CODEX_RELAY_GEMINI_API_KEY")
+        os.environ["CODEX_RELAY_GEMINI_API_KEY"] = "fake-gemini-key"
+
+        def fake_queue_plan(*_args: object) -> dict[str, object]:
+            return {"actions": [{"type": "run_codex", "prompt": "Queued audit."}]}
+
+        relay.gemini_plan_for_message = fake_queue_plan
+        try:
+            relay.handle_message(
+                fake_style,
+                {
+                    "message_id": 5,
+                    "chat": {"id": 123, "type": "private"},
+                    "from": {"id": 1},
+                    "text": "run this after the current job",
+                },
+                {1},
+                {123},
+                threads_path,
+            )
+        finally:
+            relay.gemini_plan_for_message = original_gemini_plan_for_message
+            relay.finish_job(queue_job)
+            if old_gemini_key is None:
+                os.environ.pop("CODEX_RELAY_GEMINI_API_KEY", None)
+            else:
+                os.environ["CODEX_RELAY_GEMINI_API_KEY"] = old_gemini_key
+        data = relay.read_threads(threads_path)
+        pending = data["threads_by_chat"]["123"]["main"]["pending_requests"]
+        assert_true(pending and pending[0]["prompt"] == "Queued audit.", "expected busy Gemini run to queue")
+
+        original_gemini_plan_for_message = relay.gemini_plan_for_message
+        old_gemini_key = os.environ.get("CODEX_RELAY_GEMINI_API_KEY")
+        os.environ["CODEX_RELAY_GEMINI_API_KEY"] = "fake-gemini-key"
+
+        def fake_replace_plan(*_args: object) -> dict[str, object]:
+            return {
+                "actions": [
+                    {
+                        "type": "replace_pending_request",
+                        "value": "latest",
+                        "prompt": "Run tests instead.",
+                    }
+                ]
+            }
+
+        relay.gemini_plan_for_message = fake_replace_plan
+        try:
+            relay.handle_message(
+                fake_style,
+                {
+                    "message_id": 5,
+                    "chat": {"id": 123, "type": "private"},
+                    "from": {"id": 1},
+                    "text": "change that pending request to run tests",
+                },
+                {1},
+                {123},
+                threads_path,
+            )
+        finally:
+            relay.gemini_plan_for_message = original_gemini_plan_for_message
+            if old_gemini_key is None:
+                os.environ.pop("CODEX_RELAY_GEMINI_API_KEY", None)
+            else:
+                os.environ["CODEX_RELAY_GEMINI_API_KEY"] = old_gemini_key
+        data = relay.read_threads(threads_path)
+        pending = data["threads_by_chat"]["123"]["main"]["pending_requests"]
+        assert_true(pending and pending[0]["prompt"] == "Run tests instead.", "expected Gemini to replace pending request")
+
+        original_gemini_plan_for_message = relay.gemini_plan_for_message
+        old_gemini_key = os.environ.get("CODEX_RELAY_GEMINI_API_KEY")
+        os.environ["CODEX_RELAY_GEMINI_API_KEY"] = "fake-gemini-key"
+
+        def fake_remove_plan(*_args: object) -> dict[str, object]:
+            return {"actions": [{"type": "remove_pending_request", "value": "latest"}]}
+
+        relay.gemini_plan_for_message = fake_remove_plan
+        try:
+            relay.handle_message(
+                fake_style,
+                {
+                    "message_id": 5,
+                    "chat": {"id": 123, "type": "private"},
+                    "from": {"id": 1},
+                    "text": "never mind",
+                },
+                {1},
+                {123},
+                threads_path,
+            )
+        finally:
+            relay.gemini_plan_for_message = original_gemini_plan_for_message
+            if old_gemini_key is None:
+                os.environ.pop("CODEX_RELAY_GEMINI_API_KEY", None)
+            else:
+                os.environ["CODEX_RELAY_GEMINI_API_KEY"] = old_gemini_key
+        data = relay.read_threads(threads_path)
+        assert_true(
+            not data["threads_by_chat"]["123"]["main"].get("pending_requests"),
+            "expected Gemini never mind to clear pending request",
+        )
+
+        with relay.THREADS_LOCK:
+            data = relay.read_threads(threads_path)
+            thread = relay.ensure_thread(data, 123, "main")
+            relay.queue_pending_request(thread, "Queued follow up.")
+            relay.write_threads(threads_path, data)
+        queued_starts = []
+        original_start_background_job = relay.start_background_job
+        relay.start_background_job = lambda *args, **kwargs: queued_starts.append((args, kwargs))
+        try:
+            relay.start_next_pending_job(fake_style, 123, threads_path, "main")
+        finally:
+            relay.start_background_job = original_start_background_job
+        assert_true(queued_starts, "expected queued request to start after thread clears")
+        assert_true(queued_starts[-1][0][5] == "Queued follow up.", "expected queued prompt to start")
+        data = relay.read_threads(threads_path)
+        assert_true(
+            not data["threads_by_chat"]["123"]["main"].get("pending_requests"),
+            "expected started queued request to be removed from queue",
+        )
+
+        attachment = relay.attachments_dir() / "queued-image.jpg"
+        relay.write_private_bytes(attachment, b"fake-image")
+        with relay.THREADS_LOCK:
+            data = relay.read_threads(threads_path)
+            thread = relay.ensure_thread(data, 123, "main")
+            queued_image = relay.queue_pending_request(thread, "Queued image task.", [attachment])
+            relay.write_threads(threads_path, data)
+        assert_true(queued_image["image_count"] == 1, "expected queued request to retain image count")
+        data = relay.read_threads(threads_path)
+        thread = data["threads_by_chat"]["123"]["main"]
+        assert_true("1 image" in relay.pending_queue_text(thread), "expected queue text to show image count")
+        changed, deleted = relay.remove_pending_images(thread, queued_image["id"])
+        assert_true(changed and deleted == 1, "expected pending image removal")
+        assert_true(not attachment.exists(), "expected removed pending image file to be deleted")
+
+        terminal_message_id = 30
+        relay.handle_message(
+            fake_style,
+            {
+                "message_id": terminal_message_id,
+                "chat": {"id": 123, "type": "private"},
+                "from": {"id": 1},
+                "text": "/terminal open smoke -- printf ready; sleep 5",
+            },
+            {1},
+            {123},
+            threads_path,
+        )
+        assert_true("Terminal `smoke` started" in str(fake_style.calls[-1][1].get("text")), "expected terminal open reply")
+        relay.handle_message(
+            fake_style,
+            {
+                "message_id": terminal_message_id + 1,
+                "chat": {"id": 123, "type": "private"},
+                "from": {"id": 1},
+                "text": "/terminal read smoke",
+            },
+            {1},
+            {123},
+            threads_path,
+        )
+        assert_true("ready" in str(fake_style.calls[-1][1].get("text")), "expected terminal read output")
+        relay.handle_message(
+            fake_style,
+            {
+                "message_id": terminal_message_id + 2,
+                "chat": {"id": 123, "type": "private"},
+                "from": {"id": 1},
+                "text": "/terminal kill smoke",
+            },
+            {1},
+            {123},
+            threads_path,
+        )
+        assert_true("Killed terminal: smoke" in str(fake_style.calls[-1][1].get("text")), "expected terminal kill")
+
+        fetch_file = natural_project / "fetch.txt"
+        fetch_file.write_text("send me")
+        relay.handle_message(
+            fake_style,
+            {
+                "message_id": 34,
+                "chat": {"id": 123, "type": "private"},
+                "from": {"id": 1},
+                "text": "/file fetch.txt",
+            },
+            {1},
+            {123},
+            threads_path,
+        )
+        assert_true(any(call[0] == "sendDocument" for call in fake_style.calls[-3:]), "expected /file to send document")
+
+        dummy_recovery = Path(tmp) / "recover.sh"
+        dummy_recovery.write_text("#!/bin/sh\necho recover-ok\n")
+        dummy_recovery.chmod(0o700)
+        old_recovery_script = os.environ.get("CODEX_RELAY_RECOVERY_SCRIPT")
+        os.environ["CODEX_RELAY_RECOVERY_SCRIPT"] = str(dummy_recovery)
+        try:
+            recovery_job = relay.RelayJob(123, "recovery", 0)
+            output, exit_code = relay.run_recovery_command(recovery_job, "")
+        finally:
+            if old_recovery_script is None:
+                os.environ.pop("CODEX_RELAY_RECOVERY_SCRIPT", None)
+            else:
+                os.environ["CODEX_RELAY_RECOVERY_SCRIPT"] = old_recovery_script
+        assert_true(exit_code == 0 and "recover-ok" in output, "expected recovery script runner")
 
         relay.handle_message(
             fake_style,
@@ -487,6 +796,58 @@ def run_tests() -> int:
             threads_path,
         )
         assert_true("health:" in str(fake_style.calls[-1][1].get("text")), "expected /health command")
+
+        relay.handle_message(
+            fake_style,
+            {
+                "message_id": 5,
+                "chat": {"id": 123, "type": "private"},
+                "from": {"id": 1},
+                "text": "/gemini",
+            },
+            {1},
+            {123},
+            threads_path,
+        )
+        assert_true("/gemini key" in str(fake_style.calls[-1][1].get("text")), "expected Telegram Gemini setup hint")
+
+        old_env_paths = relay.relay_env_update_paths
+        old_gemini_values = {
+            key: os.environ.get(key)
+            for key in (
+                "CODEX_RELAY_GEMINI_API_KEY",
+                "CODEX_RELAY_GEMINI_ENABLED",
+                "CODEX_RELAY_GEMINI_NATURAL_COMMANDS",
+                "CODEX_RELAY_GEMINI_POLISH",
+            )
+        }
+        gemini_env = Path(tmp) / "gemini.env"
+        gemini_key = "AIzaSyDUMMYKEYDUMMYKEYDUMMYKEY123456789"
+        relay.relay_env_update_paths = lambda: [gemini_env]
+        try:
+            relay.handle_message(
+                fake_style,
+                {
+                    "message_id": 55,
+                    "chat": {"id": 123, "type": "private"},
+                    "from": {"id": 1},
+                    "text": f"/gemini key {gemini_key}",
+                },
+                {1},
+                {123},
+                threads_path,
+            )
+            assert_true("CODEX_RELAY_GEMINI_API_KEY=" in gemini_env.read_text(), "expected Gemini key persistence")
+            assert_true(os.environ.get("CODEX_RELAY_GEMINI_API_KEY") == gemini_key, "expected live Gemini env reload")
+            assert_true(any(call[0] == "deleteMessage" for call in fake_style.calls[-3:]), "expected key message deletion attempt")
+            assert_true(gemini_key not in str(fake_style.calls[-1][1].get("text")), "expected Gemini key hidden from reply")
+        finally:
+            relay.relay_env_update_paths = old_env_paths
+            for key, value in old_gemini_values.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
 
         relay.handle_message(
             fake_style,
@@ -586,6 +947,34 @@ def run_tests() -> int:
         assert_true("last_latency_seconds" in stats, "expected latency stats")
         assert_true(stats["last_reasoning_effort"] == "xhigh", "expected reasoning stats")
 
+        high_codex = Path(tmp) / "high-codex"
+        high_codex.write_text(
+            "#!/bin/sh\n"
+            "out=''\n"
+            "found_reasoning=0\n"
+            "while [ \"$#\" -gt 0 ]; do\n"
+            "  if [ \"$1\" = '--output-last-message' ]; then shift; out=\"$1\"; fi\n"
+            "  if [ \"$1\" = 'model_reasoning_effort=\"high\"' ]; then found_reasoning=1; fi\n"
+            "  shift || true\n"
+            "done\n"
+            "if [ \"$found_reasoning\" != 1 ]; then echo 'missing high thinking mode' >&2; exit 7; fi\n"
+            "printf 'high answer\\n' > \"$out\"\n"
+        )
+        high_codex.chmod(0o700)
+        os.environ["CODEX_BIN"] = str(high_codex)
+        try:
+            answer, _session_id, stats = relay.run_codex(
+                "hello",
+                {"workdir": tmp, "name": "main", "thinking_mode": "high"},
+            )
+        finally:
+            if old_codex_bin is None:
+                os.environ.pop("CODEX_BIN", None)
+            else:
+                os.environ["CODEX_BIN"] = old_codex_bin
+        assert_true(answer == "high answer", "expected thread thinking override to reach Codex")
+        assert_true(stats["last_reasoning_effort"] == "high", "expected thinking override stats")
+
         failing_codex = Path(tmp) / "failing-codex"
         failing_codex.write_text(
             "#!/bin/sh\n"
@@ -607,6 +996,7 @@ def run_tests() -> int:
 
         old_gemini_key = os.environ.get("CODEX_RELAY_GEMINI_API_KEY")
         original_gemini_generate = relay.gemini_generate
+        original_telegram_urlopen = relay.telegram_urlopen
         os.environ["CODEX_RELAY_GEMINI_API_KEY"] = "fake-gemini-key"
         relay.gemini_generate = lambda *_args, **_kwargs: "Polished answer"
         try:
@@ -621,6 +1011,30 @@ def run_tests() -> int:
             assert_true(not relay.gemini_allows_text("set OPENAI_API_KEY=sk-12345678901234567890"), "expected Gemini secret guard")
         finally:
             relay.gemini_generate = original_gemini_generate
+        try:
+            captured: dict[str, object] = {}
+
+            def fake_gemini_urlopen(request: object, timeout: int) -> FakeResponse:
+                captured["timeout"] = timeout
+                captured["body"] = json.loads(getattr(request, "data").decode())
+                return FakeResponse(
+                    [
+                        b'{"candidates":[{"content":{"parts":[{"text":"Gemini ok"}]}}]}'
+                    ]
+                )
+
+            os.environ["CODEX_RELAY_GEMINI_MAX_OUTPUT_TOKENS"] = "4096"
+            relay.telegram_urlopen = fake_gemini_urlopen
+            assert_true(relay.gemini_generate("hello") == "Gemini ok", "expected fake Gemini output")
+            body = captured["body"]
+            assert_true(
+                isinstance(body, dict)
+                and body["generationConfig"]["maxOutputTokens"] == 4096,
+                "expected Gemini max output tokens in generation config",
+            )
+        finally:
+            relay.telegram_urlopen = original_telegram_urlopen
+            os.environ.pop("CODEX_RELAY_GEMINI_MAX_OUTPUT_TOKENS", None)
             if old_gemini_key is None:
                 os.environ.pop("CODEX_RELAY_GEMINI_API_KEY", None)
             else:

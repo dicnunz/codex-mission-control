@@ -36,5 +36,7 @@ printf "\nRunning doctor...\n"
 
 printf "\nDone. DM your bot:\n"
 printf "/alive\n/health\n/policy\n/screenshot\n/tools\n/latency\n"
+printf "\nOptional Gemini mobile harness powered by Flash 3.1 Lite:\n"
+printf "/gemini key YOUR_GEMINI_API_KEY\n"
 printf "\nOptional Mac control surface:\n./scripts/menu_bar.sh\n"
 printf "\nLocal status page:\n./scripts/status_ui.sh\n"
