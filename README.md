@@ -52,6 +52,43 @@ cd codex-relay
 
 The installer verifies the bot token, gives you a one-time `/start` code, allow-lists your private Telegram DM, installs the LaunchAgent, and runs `doctor.sh`.
 
+If token verification fails with `CERTIFICATE_VERIFY_FAILED`, rerun after fixing Python's CA bundle:
+
+```bash
+open "/Applications/Python 3.x/Install Certificates.command"
+```
+
+Codex Relay also retries Telegram HTTPS calls with the active Python CA path, `certifi` when installed, and common macOS/Homebrew CA bundles. On managed networks that use HTTPS inspection, set `CODEX_RELAY_CA_FILE=/path/to/your-ca.pem` in `.env` instead of disabling TLS verification.
+
+
+### Optional Gemini Assist
+
+After the first install, you can enable the Gemini mobile harness powered by Flash 3.1 Lite from Telegram, so the phone setup does not require opening the Mac:
+
+```text
+/gemini key YOUR_GEMINI_API_KEY
+```
+
+The relay saves the key privately, enables natural commands and answer polish, and reloads the setting in the running process. It also attempts to delete the Telegram message that contained the key. `/gemini on`, `/gemini off`, and `/gemini clear` can manage it later.
+
+You can still configure it manually in `.env`:
+
+```bash
+CODEX_RELAY_GEMINI_API_KEY=your-gemini-api-key
+CODEX_RELAY_GEMINI_MODEL=gemini-3.1-flash-lite-preview
+CODEX_RELAY_GEMINI_MAX_OUTPUT_TOKENS=4096
+CODEX_RELAY_GEMINI_NATURAL_COMMANDS=true
+CODEX_RELAY_GEMINI_POLISH=true
+```
+
+Then run:
+
+```bash
+./scripts/install_launch_agent.sh
+```
+
+With Gemini assist enabled, natural messages can map to relay actions before Codex runs. For example, `set my dir to /code/codex-relay and run a security audit` can set the active folder and start a Codex audit job. Codex still performs the repo work; Gemini only plans safe relay actions and optionally rewrites Codex's final answer to be easier to read on a phone. Gemini API key setup is handled by the relay before Codex sees the message; other messages that look like tokens, passwords, private keys, or `.env` content bypass Gemini. Use `/gemini` in Telegram to check the status.
+
 Then DM your bot:
 
 ```text
@@ -103,8 +140,10 @@ The demo proves the repo can run its smoke path without a Telegram token, local 
 /jobs         running jobs and last run
 /cancel id    stop a running job
 /history      recent run receipts, no prompt/response logs
+/activity     running jobs, pending queue, terminals, safe history
 /automations  inspect Codex automations through Codex
 /tools        quick Codex tool probe
+/recover      run local relay recovery
 /try          useful first prompts
 /new name     new Codex thread
 /use name     switch threads
@@ -112,14 +151,25 @@ The demo proves the repo can run its smoke path without a Telegram token, local 
 /where        show active folder
 /cd path      set active folder
 /home         set folder to ~
+/think mode   set Codex thinking mode for this thread
+/queue        show or add pending requests
+/forget id    remove pending request
+/forgetphotos remove saved images from pending requests
+/terminal     persistent interactive terminal sessions
+/file path    send a local file back to Telegram
 /brief        terse replies for this thread
 /verbose      detailed replies for this thread
 /update       show local update command
+/gemini       optional mobile assist status/setup
 /reset        clear the current Codex session
 /ping         bridge check
 ```
 
-Normal messages go to the active thread. Captions on Telegram images become the prompt; image files are saved privately and attached to Codex.
+Normal messages go to the active thread. If the thread is busy, normal messages and downloaded image attachments are queued and start when the active job clears. Captions on Telegram images become the prompt; image files are saved privately and attached to Codex. Telegram photo albums are batched into one Codex job with up to `CODEX_TELEGRAM_MAX_IMAGES_PER_MESSAGE` images.
+
+Thinking modes are `low`, `medium`, `high`, and `xhigh`. `/think default` returns a thread to the configured default. Queue, image cleanup, file transfer, terminal sessions, recovery, and thinking-mode commands all work without Gemini. With Gemini assist enabled, natural messages can route to those same slash-command capabilities.
+
+Terminal sessions are PTY-backed and persist while the relay process is running: `/terminal open setup -- gh auth login`, `/terminal read setup`, `/terminal enter setup yes`, and `/terminal kill setup`. File transfer uses `/file path` from the active thread folder and blocks obvious secret/runtime files by default.
 
 ## Try It
 
@@ -133,7 +183,7 @@ https://github.com/dicnunz/codex-relay/issues/new?template=install-feedback.yml
 
 The ask is simple: install it, run `/alive`, `/health`, `/policy`, `/screenshot`, try one safe local task, and report what was confusing or broken. Do not paste bot tokens, `.env`, private screenshots, personal files, raw Codex transcripts, or unredacted logs.
 
-Normal messages use `CODEX_TELEGRAM_MODEL`, `CODEX_TELEGRAM_REASONING_EFFORT`, and `CODEX_TELEGRAM_SPEED` from `.env`. The sample config defaults to `gpt-5.5`, `high`, and `standard`; change those only if you intentionally want a different reasoning profile.
+Normal messages use `CODEX_TELEGRAM_MODEL`, `CODEX_TELEGRAM_THINKING_MODE`, and `CODEX_TELEGRAM_SPEED` from `.env`. The sample config defaults to `gpt-5.5`, `xhigh`, and `standard`; change those only if you intentionally want a different reasoning profile.
 
 `/status` shows the active model settings, last run status, and latency after Codex replies.
 

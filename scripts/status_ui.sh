@@ -26,7 +26,7 @@ for label, needle in [
     ("LaunchAgent", "state = running"),
     ("Token", "TELEGRAM_BOT_TOKEN=set"),
     ("Model", "model="),
-    ("Reasoning", "reasoning_effort="),
+    ("Thinking", "thinking_mode="),
     ("Speed", "speed="),
     ("Style", "reply_style="),
     ("Images", "telegram_images=enabled"),

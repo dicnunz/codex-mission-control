@@ -14,7 +14,18 @@ cd "$ROOT"
 
 [[ "$(uname -s)" == "Darwin" ]] && ok "macOS detected" || fail "Codex Relay is macOS-first"
 
-if [[ -x "/Applications/Codex.app/Contents/Resources/codex" ]]; then
+configured_codex=""
+if [[ -f "$ROOT/.env" ]]; then
+  configured_codex="$(sed -n 's/^CODEX_BIN=//p' "$ROOT/.env" | head -n 1)"
+  configured_codex="${configured_codex#\"}"
+  configured_codex="${configured_codex%\"}"
+  configured_codex="${configured_codex#\'}"
+  configured_codex="${configured_codex%\'}"
+fi
+
+if [[ -n "$configured_codex" && -x "$configured_codex" ]]; then
+  ok "configured Codex CLI found"
+elif [[ -x "/Applications/Codex.app/Contents/Resources/codex" ]]; then
   ok "Codex app CLI found"
 elif command -v codex >/dev/null 2>&1; then
   warn "using PATH codex; Codex app CLI not found at /Applications/Codex.app"

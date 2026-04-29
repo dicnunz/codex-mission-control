@@ -40,7 +40,7 @@ The product is ready to show only when these are true:
 
 - Local LaunchAgent, not a hosted relay account.
 - Local Codex app CLI, not a separate agent backend.
-- Default model, reasoning effort, and speed tier are explicit in `.env.example`.
+- Default model, thinking mode, and speed tier are explicit in `.env.example`.
 - Telegram bot is allow-listed to one configured user/chat.
 - Runtime state lives under `~/Library/Application Support/CodexRelay`.
 - Runtime jobs expose `/jobs`, `/cancel`, and `/history` without logging prompts or responses.
@@ -55,12 +55,12 @@ Expected behavior:
 - `/ping`, `/alive`, `/health`, `/policy`, `/status`, `/where`, and thread commands should return quickly because they do not call Codex.
 - `/jobs`, `/cancel`, and `/history` should respond while a long Codex task is running.
 - Normal prompts show Telegram typing while Codex is running.
-- Normal prompts use the configured model, reasoning effort, and speed tier.
+- Normal prompts use the configured model, thinking mode, and speed tier.
 - `/screenshot` is a bridge command, not a Codex model call.
 - Final replies arrive only after the Codex CLI run finishes.
 - Longer waits are normal for image analysis, browser or desktop/app-control work, repo edits, tests, package installs, or prompts that require tool calls.
 - A task that exceeds `CODEX_TELEGRAM_TIMEOUT_SECONDS` stops with a timeout message.
-- `/history` stores only safe run receipts: status, latency, thread, job id, image count, folder basename, reasoning effort, and speed tier.
+- `/history` stores only safe run receipts: status, latency, thread, job id, image count, folder basename, thinking mode, and speed tier.
 
 Public answer:
 

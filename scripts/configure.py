@@ -8,6 +8,7 @@ import getpass
 import os
 import secrets
 import shutil
+import ssl
 import subprocess
 import sys
 import time
@@ -20,6 +21,18 @@ from typing import Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 ENV_PATH = ROOT / ".env"
+CA_FILE_KEYS = ("CODEX_RELAY_CA_FILE", "SSL_CERT_FILE", "REQUESTS_CA_BUNDLE")
+COMMON_CA_FILES = (
+    "/etc/ssl/cert.pem",
+    "/opt/homebrew/etc/openssl@3/cert.pem",
+    "/opt/homebrew/etc/ca-certificates/cert.pem",
+    "/usr/local/etc/openssl@3/cert.pem",
+    "/usr/local/etc/ca-certificates/cert.pem",
+)
+
+
+class TelegramTLSCertificateError(RuntimeError):
+    """Raised when Python cannot verify Telegram's HTTPS certificate."""
 
 
 def private_write(path: Path, text: str) -> None:
@@ -47,13 +60,27 @@ def save_env(values: dict[str, str]) -> None:
         "TELEGRAM_BOT_TOKEN",
         "TELEGRAM_ALLOWED_USER_ID",
         "TELEGRAM_ALLOWED_CHAT_ID",
+        "CODEX_RELAY_CA_FILE",
         "CODEX_RELAY_USER_NAME",
         "CODEX_RELAY_ASSISTANT_NAME",
         "CODEX_RELAY_ASSISTANT_PERSONALITY",
+        "CODEX_RELAY_GEMINI_API_KEY",
+        "CODEX_RELAY_GEMINI_ENABLED",
+        "CODEX_RELAY_GEMINI_MODEL",
+        "CODEX_RELAY_GEMINI_MAX_OUTPUT_TOKENS",
+        "CODEX_RELAY_GEMINI_NATURAL_COMMANDS",
+        "CODEX_RELAY_GEMINI_POLISH",
+        "CODEX_RELAY_GEMINI_TIMEOUT_SECONDS",
+        "CODEX_RELAY_GEMINI_ERROR_NOTICES",
+        "CODEX_RELAY_RECOVERY_TIMEOUT_SECONDS",
+        "CODEX_RELAY_TERMINAL_BUFFER_CHARS",
+        "CODEX_RELAY_TERMINAL_READ_LIMIT",
+        "CODEX_RELAY_ALLOW_SENSITIVE_FILE_TRANSFER",
         "CODEX_TELEGRAM_WORKDIR",
         "CODEX_BIN",
         "CODEX_TELEGRAM_SANDBOX",
         "CODEX_TELEGRAM_MODEL",
+        "CODEX_TELEGRAM_THINKING_MODE",
         "CODEX_TELEGRAM_REASONING_EFFORT",
         "CODEX_TELEGRAM_SPEED",
         "CODEX_TELEGRAM_REPLY_STYLE",
@@ -63,7 +90,11 @@ def save_env(values: dict[str, str]) -> None:
         "CODEX_TELEGRAM_REPLY_UNAUTHORIZED",
         "CODEX_TELEGRAM_ALLOW_GROUP_CHATS",
         "CODEX_TELEGRAM_TYPING_INTERVAL_SECONDS",
+        "CODEX_TELEGRAM_POLL_TIMEOUT_SECONDS",
+        "CODEX_TELEGRAM_POLL_HTTP_TIMEOUT_SECONDS",
+        "CODEX_TELEGRAM_MAX_IMAGES_PER_MESSAGE",
         "CODEX_TELEGRAM_MAX_IMAGE_BYTES",
+        "CODEX_TELEGRAM_MAX_FILE_BYTES",
         "CODEX_TELEGRAM_IMAGE_RETENTION_DAYS",
     ]
     lines = ["# Codex Relay private config. Do not commit this file."]
@@ -75,6 +106,98 @@ def save_env(values: dict[str, str]) -> None:
     private_write(ENV_PATH, "\n".join(lines) + "\n")
 
 
+def apply_env_certificate_settings(values: dict[str, str]) -> None:
+    for key in CA_FILE_KEYS:
+        if values.get(key) and key not in os.environ:
+            os.environ[key] = values[key]
+
+
+def candidate_ca_files() -> list[Path]:
+    candidates: list[str] = []
+    for key in CA_FILE_KEYS:
+        value = os.environ.get(key, "").strip()
+        if value:
+            candidates.append(value)
+
+    paths = ssl.get_default_verify_paths()
+    candidates.extend([paths.cafile or "", paths.openssl_cafile or ""])
+
+    try:
+        import certifi  # type: ignore[import-not-found]
+
+        candidates.append(certifi.where())
+    except Exception:
+        pass
+
+    candidates.extend(COMMON_CA_FILES)
+
+    seen: set[Path] = set()
+    usable: list[Path] = []
+    for raw in candidates:
+        if not raw:
+            continue
+        path = Path(raw).expanduser()
+        if path in seen or not path.is_file():
+            continue
+        seen.add(path)
+        usable.append(path)
+    return usable
+
+
+def is_certificate_error(exc: BaseException) -> bool:
+    reason = getattr(exc, "reason", exc)
+    if isinstance(reason, ssl.SSLError):
+        return True
+    return "CERTIFICATE_VERIFY_FAILED" in str(reason)
+
+
+def python_org_certificate_command() -> str:
+    version = f"{sys.version_info.major}.{sys.version_info.minor}"
+    command = Path(f"/Applications/Python {version}/Install Certificates.command")
+    if command.exists():
+        return f'open "{command}"'
+    return 'open "/Applications/Python 3.x/Install Certificates.command"'
+
+
+def certificate_error_message(exc: BaseException, tried: list[Path]) -> str:
+    tried_text = ", ".join(str(path) for path in tried) or "none found"
+    return (
+        "Could not verify Telegram's HTTPS certificate.\n"
+        f"Original error: {getattr(exc, 'reason', exc)}\n"
+        f"Tried CA bundles: {tried_text}\n\n"
+        "Fix one of these, then rerun ./scripts/install.sh:\n"
+        f"- python.org macOS Python: run {python_org_certificate_command()}\n"
+        "- Homebrew/system Python: make sure /etc/ssl/cert.pem or Homebrew ca-certificates exists.\n"
+        "- Corporate or security proxy: export CODEX_RELAY_CA_FILE=/path/to/your-ca.pem "
+        "or put that line in .env.\n\n"
+        "Do not bypass TLS verification for a bot token."
+    )
+
+
+def telegram_urlopen(request: urllib.request.Request, timeout: int):
+    try:
+        return urllib.request.urlopen(request, timeout=timeout)
+    except urllib.error.URLError as exc:
+        if not is_certificate_error(exc):
+            raise
+        first_error: BaseException = exc
+
+    tried: list[Path] = []
+    for ca_file in candidate_ca_files():
+        tried.append(ca_file)
+        try:
+            context = ssl.create_default_context(cafile=str(ca_file))
+            return urllib.request.urlopen(request, timeout=timeout, context=context)
+        except urllib.error.URLError as exc:
+            if not is_certificate_error(exc):
+                raise
+            first_error = exc
+        except ssl.SSLError as exc:
+            first_error = exc
+
+    raise TelegramTLSCertificateError(certificate_error_message(first_error, tried)) from first_error
+
+
 def telegram_call(token: str, method: str, params: Optional[dict[str, str]] = None) -> dict:
     data = urllib.parse.urlencode(params or {}).encode()
     request = urllib.request.Request(
@@ -82,7 +205,7 @@ def telegram_call(token: str, method: str, params: Optional[dict[str, str]] = No
         data=data,
         method="POST",
     )
-    with urllib.request.urlopen(request, timeout=20) as response:
+    with telegram_urlopen(request, timeout=20) as response:
         payload = json.loads(response.read().decode())
     if not payload.get("ok"):
         raise RuntimeError(str(payload))
@@ -148,6 +271,8 @@ def wait_for_start(
         offset = latest_update_offset(token)
     except urllib.error.HTTPError as exc:
         raise SystemExit(f"Telegram rejected the token: HTTP {exc.code}") from exc
+    except TelegramTLSCertificateError as exc:
+        raise SystemExit(str(exc)) from exc
     print("Authorize only your private Telegram DM.")
     if deep_link:
         print(f"Open {deep_link}")
@@ -162,6 +287,8 @@ def wait_for_start(
             updates = telegram_call(token, "getUpdates", params).get("result", [])
         except urllib.error.HTTPError as exc:
             raise SystemExit(f"Telegram rejected the token: HTTP {exc.code}") from exc
+        except TelegramTLSCertificateError as exc:
+            raise SystemExit(str(exc)) from exc
         for update in updates:
             offset = int(update["update_id"]) + 1
             match = enrollment_match(update, nonce)
@@ -173,12 +300,15 @@ def wait_for_start(
 
 def main() -> int:
     values = load_env()
+    apply_env_certificate_settings(values)
     codex_bin = values.get("CODEX_BIN") or detect_codex()
     token = prompt_token(values.get("TELEGRAM_BOT_TOKEN", ""))
     try:
         bot = telegram_call(token, "getMe")["result"]
     except urllib.error.HTTPError as exc:
         raise SystemExit(f"Telegram rejected the token: HTTP {exc.code}") from exc
+    except TelegramTLSCertificateError as exc:
+        raise SystemExit(str(exc)) from exc
     username = bot.get("username") or ""
     user_id, chat_id = wait_for_start(
         token,
@@ -194,10 +324,24 @@ def main() -> int:
             "CODEX_TELEGRAM_WORKDIR": values.get("CODEX_TELEGRAM_WORKDIR") or str(Path.home()),
             "CODEX_RELAY_ASSISTANT_NAME": values.get("CODEX_RELAY_ASSISTANT_NAME") or "Codex",
             "CODEX_RELAY_ASSISTANT_PERSONALITY": values.get("CODEX_RELAY_ASSISTANT_PERSONALITY") or "",
+            "CODEX_RELAY_GEMINI_API_KEY": values.get("CODEX_RELAY_GEMINI_API_KEY") or "",
+            "CODEX_RELAY_GEMINI_ENABLED": values.get("CODEX_RELAY_GEMINI_ENABLED") or "true",
+            "CODEX_RELAY_GEMINI_MODEL": values.get("CODEX_RELAY_GEMINI_MODEL") or "gemini-3.1-flash-lite-preview",
+            "CODEX_RELAY_GEMINI_MAX_OUTPUT_TOKENS": values.get("CODEX_RELAY_GEMINI_MAX_OUTPUT_TOKENS") or "4096",
+            "CODEX_RELAY_GEMINI_NATURAL_COMMANDS": values.get("CODEX_RELAY_GEMINI_NATURAL_COMMANDS") or "true",
+            "CODEX_RELAY_GEMINI_POLISH": values.get("CODEX_RELAY_GEMINI_POLISH") or "true",
+            "CODEX_RELAY_GEMINI_TIMEOUT_SECONDS": values.get("CODEX_RELAY_GEMINI_TIMEOUT_SECONDS") or "20",
+            "CODEX_RELAY_GEMINI_ERROR_NOTICES": values.get("CODEX_RELAY_GEMINI_ERROR_NOTICES") or "true",
+            "CODEX_RELAY_RECOVERY_TIMEOUT_SECONDS": values.get("CODEX_RELAY_RECOVERY_TIMEOUT_SECONDS") or "1200",
+            "CODEX_RELAY_TERMINAL_BUFFER_CHARS": values.get("CODEX_RELAY_TERMINAL_BUFFER_CHARS") or "20000",
+            "CODEX_RELAY_TERMINAL_READ_LIMIT": values.get("CODEX_RELAY_TERMINAL_READ_LIMIT") or "4000",
+            "CODEX_RELAY_ALLOW_SENSITIVE_FILE_TRANSFER": values.get("CODEX_RELAY_ALLOW_SENSITIVE_FILE_TRANSFER") or "false",
             "CODEX_BIN": codex_bin,
             "CODEX_TELEGRAM_SANDBOX": values.get("CODEX_TELEGRAM_SANDBOX") or "danger-full-access",
             "CODEX_TELEGRAM_MODEL": values.get("CODEX_TELEGRAM_MODEL") or "gpt-5.5",
-            "CODEX_TELEGRAM_REASONING_EFFORT": values.get("CODEX_TELEGRAM_REASONING_EFFORT") or "high",
+            "CODEX_TELEGRAM_THINKING_MODE": values.get("CODEX_TELEGRAM_THINKING_MODE")
+            or values.get("CODEX_TELEGRAM_REASONING_EFFORT")
+            or "xhigh",
             "CODEX_TELEGRAM_SPEED": values.get("CODEX_TELEGRAM_SPEED") or "standard",
             "CODEX_TELEGRAM_REPLY_STYLE": values.get("CODEX_TELEGRAM_REPLY_STYLE") or "brief",
             "CODEX_TELEGRAM_APPROVAL": values.get("CODEX_TELEGRAM_APPROVAL") or "never",
@@ -206,7 +350,11 @@ def main() -> int:
             "CODEX_TELEGRAM_REPLY_UNAUTHORIZED": values.get("CODEX_TELEGRAM_REPLY_UNAUTHORIZED") or "false",
             "CODEX_TELEGRAM_ALLOW_GROUP_CHATS": values.get("CODEX_TELEGRAM_ALLOW_GROUP_CHATS") or "false",
             "CODEX_TELEGRAM_TYPING_INTERVAL_SECONDS": values.get("CODEX_TELEGRAM_TYPING_INTERVAL_SECONDS") or "4",
+            "CODEX_TELEGRAM_POLL_TIMEOUT_SECONDS": values.get("CODEX_TELEGRAM_POLL_TIMEOUT_SECONDS") or "25",
+            "CODEX_TELEGRAM_POLL_HTTP_TIMEOUT_SECONDS": values.get("CODEX_TELEGRAM_POLL_HTTP_TIMEOUT_SECONDS") or "60",
+            "CODEX_TELEGRAM_MAX_IMAGES_PER_MESSAGE": values.get("CODEX_TELEGRAM_MAX_IMAGES_PER_MESSAGE") or "10",
             "CODEX_TELEGRAM_MAX_IMAGE_BYTES": values.get("CODEX_TELEGRAM_MAX_IMAGE_BYTES") or "20971520",
+            "CODEX_TELEGRAM_MAX_FILE_BYTES": values.get("CODEX_TELEGRAM_MAX_FILE_BYTES") or "20971520",
             "CODEX_TELEGRAM_IMAGE_RETENTION_DAYS": values.get("CODEX_TELEGRAM_IMAGE_RETENTION_DAYS") or "7",
         }
     )
