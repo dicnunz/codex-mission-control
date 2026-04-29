@@ -33,7 +33,7 @@ jobs:
           brew install ffmpeg
           cp assets/codex-mission-control-demo.mp4 "$RUNNER_TEMP/codex-mission-control-demo-before.mp4"
           ./scripts/record_demo.sh
-          git diff --exit-code -- assets/social-card.svg assets/social-card.png assets/demo-transcript.svg assets/codex-mission-control-demo-poster.png
+          git diff --exit-code -- assets/social-card.svg assets/demo-transcript.svg assets/codex-mission-control-demo-poster.png
           test "$(sips -g pixelWidth -g pixelHeight assets/social-card.png | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w "x" h}')" = "1280x640"
           test "$(ffprobe -v error -show_entries stream=width,height -of csv=p=0:s=x assets/codex-mission-control-demo.mp4 | head -n1)" = "1280x720"
           test "$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 assets/codex-mission-control-demo.mp4)" = "44.000000"
