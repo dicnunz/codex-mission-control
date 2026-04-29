@@ -183,6 +183,10 @@ https://github.com/dicnunz/codex-relay/issues/new?template=install-feedback.yml
 
 The ask is simple: install it, run `/alive`, `/health`, `/policy`, `/screenshot`, try one safe local task, and report what was confusing or broken. Do not paste bot tokens, `.env`, private screenshots, personal files, raw Codex transcripts, or unredacted logs.
 
+Normal messages use `CODEX_TELEGRAM_MODEL`, `CODEX_TELEGRAM_THINKING_MODE`, and `CODEX_TELEGRAM_SPEED` from `.env`. The sample config defaults to `gpt-5.5`, `xhigh`, and `standard`; change those only if you intentionally want a different reasoning profile.
+
+`/status` shows the active model settings, last run status, and latency after Codex replies.
+
 ## What It Is Not
 
 | It is | It is not |
@@ -209,7 +213,11 @@ After real install:
 ./scripts/status_ui.sh
 ```
 
-`doctor.sh` checks the Mac environment, Codex CLI, local config, LaunchAgent, runtime copy, Python syntax, and smoke tests. `status_ui.sh` opens a private local status page generated from `status.sh`.
+Use `doctor.sh` as the pass/fail install check. Use `status.sh` for diagnostics. `doctor.sh` checks the Mac environment, Codex CLI, local config, LaunchAgent, runtime copy, screenshot permission, Python syntax, and smoke tests.
+
+If `/screenshot` says macOS could not create an image from the display, grant Screen Recording access on the Mac: System Settings > Privacy & Security > Screen & System Audio Recording. Allow Terminal/Codex or the app that installed Codex Relay, then rerun `./scripts/doctor.sh`.
+
+`status_ui.sh` opens a private local status page generated from `status.sh`. `menu_bar.sh` builds and opens the optional native macOS menu-bar controller. `fresh_clone_test.sh` clones the repo into a temp folder and proves the no-secrets demo path works from a clean checkout.
 
 Runtime files:
 

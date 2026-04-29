@@ -52,6 +52,14 @@ if [[ -f "$RUNTIME/codex_relay.py" ]]; then
   cmp -s "$ROOT/codex_relay.py" "$RUNTIME/codex_relay.py" && ok "runtime script matches repo" || fail "runtime script differs; run ./scripts/install_launch_agent.sh"
 fi
 
+shot="$(mktemp -t codex-relay-screen.XXXXXX.jpg)"
+if screencapture -x -t jpg "$shot" >/dev/null 2>&1 && [[ -s "$shot" ]]; then
+  ok "screenshot permission works"
+else
+  warn "screenshot permission blocked; allow Screen Recording for Terminal/Codex in System Settings"
+fi
+rm -f "$shot"
+
 python3 -m py_compile "$ROOT/codex_relay.py" "$ROOT/scripts/configure.py"
 ok "python syntax"
 

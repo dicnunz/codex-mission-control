@@ -82,6 +82,7 @@ def save_env(values: dict[str, str]) -> None:
         "CODEX_TELEGRAM_MODEL",
         "CODEX_TELEGRAM_THINKING_MODE",
         "CODEX_TELEGRAM_REASONING_EFFORT",
+        "CODEX_TELEGRAM_SPEED",
         "CODEX_TELEGRAM_REPLY_STYLE",
         "CODEX_TELEGRAM_APPROVAL",
         "CODEX_TELEGRAM_TIMEOUT_SECONDS",
@@ -341,6 +342,7 @@ def main() -> int:
             "CODEX_TELEGRAM_THINKING_MODE": values.get("CODEX_TELEGRAM_THINKING_MODE")
             or values.get("CODEX_TELEGRAM_REASONING_EFFORT")
             or "xhigh",
+            "CODEX_TELEGRAM_SPEED": values.get("CODEX_TELEGRAM_SPEED") or "standard",
             "CODEX_TELEGRAM_REPLY_STYLE": values.get("CODEX_TELEGRAM_REPLY_STYLE") or "brief",
             "CODEX_TELEGRAM_APPROVAL": values.get("CODEX_TELEGRAM_APPROVAL") or "never",
             "CODEX_TELEGRAM_TIMEOUT_SECONDS": values.get("CODEX_TELEGRAM_TIMEOUT_SECONDS") or "600",

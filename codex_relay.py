@@ -42,6 +42,7 @@ DEFAULT_IMAGE_RETENTION_DAYS = 7
 DEFAULT_MEDIA_GROUP_GRACE_SECONDS = 1.2
 DEFAULT_TERMINAL_READ_LIMIT = 4000
 MAX_IMAGES_PER_MESSAGE = 10
+DEFAULT_MODEL = "gpt-5.5"
 DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite-preview"
 DEFAULT_GEMINI_TIMEOUT_SECONDS = 20
 DEFAULT_GEMINI_MAX_OUTPUT_TOKENS = 4096
@@ -68,6 +69,8 @@ THINKING_MODE_ALIASES = {
     "max": "xhigh",
     "maximum": "xhigh",
 }
+DEFAULT_CODEX_SPEED = "standard"
+CODEX_SPEEDS = {"standard", "fast"}
 DEFAULT_REPLY_STYLE = "normal"
 REPLY_STYLES = {"brief", "normal", "verbose"}
 SESSION_RE = re.compile(r"session id:\s*([0-9a-fA-F-]{36})", re.IGNORECASE)
@@ -310,6 +313,10 @@ def thinking_mode_help_text(thread: dict[str, Any]) -> str:
             "Applies to the next Codex job in this thread.",
         ]
     )
+
+
+def codex_speed_default() -> str:
+    return env_choice("CODEX_TELEGRAM_SPEED", DEFAULT_CODEX_SPEED, CODEX_SPEEDS)
 
 
 def reply_style_default() -> str:
@@ -1694,6 +1701,23 @@ def capture_screenshot() -> Path:
     return target
 
 
+def screenshot_failure_text(error: str) -> str:
+    detail = error.strip() or "screencapture failed"
+    lower_detail = detail.lower()
+    if (
+        "could not create image from display" in lower_detail
+        or "not authorized" in lower_detail
+        or "screen capture" in lower_detail
+    ):
+        return (
+            "Blocked: screenshot needs macOS Screen Recording permission for this launch path. "
+            "On the Mac, open System Settings > Privacy & Security > Screen & System Audio Recording, "
+            "allow Terminal/Codex or the app that installed Codex Relay, then run ./scripts/doctor.sh. "
+            f"raw: {detail}"
+        )
+    return f"Blocked: screenshot failed: {detail}"
+
+
 def read_offset(path: Path) -> Optional[int]:
     try:
         return int(path.read_text().strip())
@@ -1724,6 +1748,7 @@ def append_history_event(event: dict[str, Any]) -> None:
         "latency_seconds",
         "image_count",
         "reasoning_effort",
+        "speed",
         "exit_code",
         "job_id",
         "folder",
@@ -2556,6 +2581,7 @@ def base_codex_command(
     approval: str,
     sandbox: str,
     reasoning_effort: str,
+    speed: str,
 ) -> list[str]:
     command = [
         codex_path,
@@ -2566,6 +2592,8 @@ def base_codex_command(
         f'approval_policy="{approval}"',
         "-c",
         f'model_reasoning_effort="{reasoning_effort}"',
+        "-c",
+        f'service_tier="{speed}"',
     ]
     if model:
         command.extend(["--model", model])
@@ -2644,6 +2672,7 @@ def run_codex(
     session_id = str(thread.get("session_id") or "")
     image_count = len(image_paths or [])
     reasoning_effort = thread_thinking_mode(thread)
+    speed = codex_speed_default()
     started_at = now_iso()
     started = time.monotonic()
 
@@ -2659,6 +2688,7 @@ def run_codex(
             "last_status": status,
             "last_image_count": image_count,
             "last_reasoning_effort": reasoning_effort,
+            "last_speed": speed,
         }
         if exit_code is not None:
             stats["last_exit_code"] = exit_code
@@ -2678,11 +2708,11 @@ def run_codex(
         return finish(f"Blocked: could not find Codex CLI: {codex_bin}", session_id, "blocked")
 
     sandbox = os.environ.get("CODEX_TELEGRAM_SANDBOX", "danger-full-access")
-    model = os.environ.get("CODEX_TELEGRAM_MODEL", "gpt-5.5").strip()
+    model = os.environ.get("CODEX_TELEGRAM_MODEL", DEFAULT_MODEL).strip()
     approval = os.environ.get("CODEX_TELEGRAM_APPROVAL", "never")
     timeout = env_int("CODEX_TELEGRAM_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS)
     thread_name = str(thread.get("name") or DEFAULT_THREAD)
-    command = base_codex_command(codex_path, model, approval, sandbox, reasoning_effort)
+    command = base_codex_command(codex_path, model, approval, sandbox, reasoning_effort, speed)
     for image_path in image_paths or []:
         command.extend(["--image", str(image_path)])
 
@@ -2910,6 +2940,12 @@ def health_text() -> str:
             thinking_mode_default(),
             "",
         ),
+        (
+            "speed",
+            True,
+            codex_speed_default(),
+            "",
+        ),
     ]
     lines = ["health:"]
     for label, ok, good, bad in checks:
@@ -2926,8 +2962,9 @@ def status_text(thread: dict[str, Any], chat_id: Optional[int] = None) -> str:
     lines = [
         f"thread: {thread.get('name', DEFAULT_THREAD)} ({session_status})",
         f"folder: {thread.get('workdir', default_workdir())}",
-        f"model: {os.environ.get('CODEX_TELEGRAM_MODEL', 'gpt-5.5')}",
+        f"model: {os.environ.get('CODEX_TELEGRAM_MODEL', DEFAULT_MODEL)}",
         f"thinking mode: {thinking_mode_status(thread)}",
+        f"speed: {codex_speed_default()}",
         f"reply style: {thread.get('reply_style') or reply_style_default()}",
         f"sandbox: {os.environ.get('CODEX_TELEGRAM_SANDBOX', 'danger-full-access')}",
         f"approval: {os.environ.get('CODEX_TELEGRAM_APPROVAL', 'never')}",
@@ -2957,8 +2994,9 @@ def alive_text(thread: dict[str, Any]) -> str:
             f"uptime: {duration_text(time.time() - STARTED_AT)}",
             f"thread: {thread.get('name', DEFAULT_THREAD)} ({session_status})",
             f"folder: {thread.get('workdir', default_workdir())}",
-            f"model: {os.environ.get('CODEX_TELEGRAM_MODEL', 'gpt-5.5')}",
+            f"model: {os.environ.get('CODEX_TELEGRAM_MODEL', DEFAULT_MODEL)}",
             f"thinking: {thinking_mode_status(thread)}",
+            f"speed: {codex_speed_default()}",
             f"style: {thread.get('reply_style') or reply_style_default()}",
             "remote: Telegram -> LaunchAgent -> Codex CLI -> this Mac",
             "next: send /tools, /try, or a normal task.",
@@ -2980,6 +3018,8 @@ def last_run_lines(thread: dict[str, Any]) -> list[str]:
         pieces.append(f"{image_count} {image_label}")
     if thread.get("last_reasoning_effort"):
         pieces.append(str(thread["last_reasoning_effort"]))
+    if thread.get("last_speed"):
+        pieces.append(str(thread["last_speed"]))
     lines = [f"last run: {'; '.join(pieces)}"]
     if thread.get("last_run_at"):
         lines.append(f"last run at: {thread['last_run_at']}")
@@ -3483,6 +3523,7 @@ def history_event_from_stats(
         "latency_seconds": stats.get("last_latency_seconds"),
         "image_count": stats.get("last_image_count"),
         "reasoning_effort": stats.get("last_reasoning_effort"),
+        "speed": stats.get("last_speed"),
         "exit_code": stats.get("last_exit_code"),
         "job_id": job.id,
         "folder": folder.name or str(folder),
@@ -3497,6 +3538,7 @@ def record_run_stats(thread: dict[str, Any], stats: dict[str, Any]) -> None:
         "last_exit_code",
         "last_image_count",
         "last_reasoning_effort",
+        "last_speed",
     ]:
         if key in stats:
             thread[key] = stats[key]
@@ -4111,7 +4153,7 @@ def handle_message(
                 screenshot = capture_screenshot()
                 api.send_photo(chat_id, screenshot, "Mac screenshot", message_id)
         except RuntimeError as exc:
-            api.send_message(chat_id, f"Blocked: screenshot failed: {exc}", message_id)
+            api.send_message(chat_id, screenshot_failure_text(str(exc)), message_id)
         return
 
     if command in {"/try", "/demo"}:
@@ -4266,9 +4308,10 @@ def check_config() -> int:
     print(f"workdir={workdir} exists={workdir.exists()}")
     print(f"codex={shutil.which(codex_bin) or 'missing'}")
     print(f"sandbox={os.environ.get('CODEX_TELEGRAM_SANDBOX', 'danger-full-access')}")
-    print(f"model={os.environ.get('CODEX_TELEGRAM_MODEL', 'gpt-5.5')}")
+    print(f"model={os.environ.get('CODEX_TELEGRAM_MODEL', DEFAULT_MODEL)}")
     print(f"thinking_mode={thinking_mode_default()}")
     print(f"reasoning_effort={thinking_mode_default()}")
+    print(f"speed={codex_speed_default()}")
     print(f"reply_style={reply_style_default()}")
     print(f"gemini_enabled={gemini_enabled()}")
     print(f"gemini_model={gemini_model()}")

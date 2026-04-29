@@ -10,7 +10,7 @@ This is better than VNC when the goal is to command Codex, not manually drive a 
 Phone prompt -> Telegram bot -> Mac LaunchAgent -> Codex CLI -> Telegram reply
 ```
 
-The default normal prompt path uses your configured Codex model and active thinking mode through the local Codex app CLI.
+The default normal prompt path uses your configured Codex model, active thinking mode, and speed tier through the local Codex app CLI.
 
 ## Prompts That Fit
 
@@ -61,7 +61,7 @@ make the README feel pinned-worthy
 - `/jobs`, `/cancel`, `/history`, `/activity`, `/queue`, `/terminal`, and `/file` should work while Codex is busy.
 - New normal requests can queue while the active thread is busy, including saved images. `/forget`, `/forgetphotos`, and `/queue next id` adjust that queue without Gemini.
 - Normal prompts wait for Codex to finish.
-- Normal prompts use your configured Codex model and active thinking mode.
+- Normal prompts use your configured Codex model, active thinking mode, and speed tier.
 - Image, browser, repo-editing, test-running, and desktop/app-control prompts can take tens of seconds or minutes. Desktop/app-control behavior depends on what your local Codex runtime exposes.
 - If the request is public or irreversible, ask Codex to draft and stop before posting, pushing, paying, deleting, or changing accounts.
 

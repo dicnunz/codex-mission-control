@@ -103,6 +103,7 @@ TEST_ENV = {
     "CODEX_TELEGRAM_MODEL": "gpt-5.5",
     "CODEX_TELEGRAM_THINKING_MODE": "xhigh",
     "CODEX_TELEGRAM_REASONING_EFFORT": "xhigh",
+    "CODEX_TELEGRAM_SPEED": "standard",
     "CODEX_TELEGRAM_REPLY_STYLE": "brief",
     "CODEX_TELEGRAM_TIMEOUT_SECONDS": "600",
 }
@@ -336,6 +337,7 @@ def run_tests() -> int:
     assert_true("reply style: brief" in status, "expected reply style status")
     assert_true("group chats: disabled" in status, "expected group chat status")
     assert_true("thinking mode: xhigh" in status, "expected default xhigh thinking status")
+    assert_true("speed: standard" in status, "expected default standard speed status")
     assert_true("gemini assist: disabled" in status, "expected Gemini status")
     assert_true("running jobs: 0" in status, "expected running job count")
     assert_true("pending requests: 0" in status, "expected pending request count")
@@ -433,7 +435,8 @@ def run_tests() -> int:
                 "status": "ok",
                 "latency_seconds": 2.3,
                 "image_count": 1,
-                "reasoning_effort": "xhigh",
+                "reasoning_effort": "high",
+                "speed": "standard",
                 "job_id": "abc12345",
                 "folder": "repo",
                 "prompt": "must not persist",
@@ -884,6 +887,28 @@ def run_tests() -> int:
             relay.capture_screenshot = original_capture_screenshot
         assert_true(fake_style.calls[-1][0] == "sendPhoto", "expected /screenshot to send a photo")
 
+        def blocked_screenshot() -> Path:
+            raise RuntimeError("could not create image from display")
+
+        relay.capture_screenshot = blocked_screenshot
+        try:
+            relay.handle_message(
+                fake_style,
+                {
+                    "message_id": 8,
+                    "chat": {"id": 123, "type": "private"},
+                    "from": {"id": 1},
+                    "text": "/screenshot",
+                },
+                {1},
+                {123},
+                threads_path,
+            )
+        finally:
+            relay.capture_screenshot = original_capture_screenshot
+        blocked_text = str(fake_style.calls[-1][1].get("text"))
+        assert_true("Screen Recording permission" in blocked_text, "expected screenshot permission guidance")
+
         background_calls = []
         original_start_background_job = relay.start_background_job
 
@@ -916,20 +941,25 @@ def run_tests() -> int:
             "#!/bin/sh\n"
             "out=''\n"
             "found_reasoning=0\n"
+            "found_speed=0\n"
             "while [ \"$#\" -gt 0 ]; do\n"
             "  if [ \"$1\" = '--output-last-message' ]; then shift; out=\"$1\"; fi\n"
-            "  if [ \"$1\" = 'model_reasoning_effort=\"xhigh\"' ]; then found_reasoning=1; fi\n"
+            "  if [ \"$1\" = 'model_reasoning_effort=\"high\"' ]; then found_reasoning=1; fi\n"
+            "  if [ \"$1\" = 'service_tier=\"standard\"' ]; then found_speed=1; fi\n"
             "  shift || true\n"
             "done\n"
             "if [ \"$found_reasoning\" != 1 ]; then echo 'missing reasoning effort' >&2; exit 7; fi\n"
+            "if [ \"$found_speed\" != 1 ]; then echo 'missing speed tier' >&2; exit 8; fi\n"
             "printf 'fake answer\\n' > \"$out\"\n"
             "printf 'session id: 12345678-1234-1234-1234-123456789abc\\n' >&2\n"
         )
         fake_codex.chmod(0o700)
         old_codex_bin = os.environ.get("CODEX_BIN")
         old_reasoning = os.environ.get("CODEX_TELEGRAM_REASONING_EFFORT")
+        old_thinking = os.environ.get("CODEX_TELEGRAM_THINKING_MODE")
         os.environ["CODEX_BIN"] = str(fake_codex)
-        os.environ["CODEX_TELEGRAM_REASONING_EFFORT"] = "xhigh"
+        os.environ["CODEX_TELEGRAM_REASONING_EFFORT"] = "high"
+        os.environ["CODEX_TELEGRAM_THINKING_MODE"] = "high"
         try:
             answer, session_id, stats = relay.run_codex("hello", {"workdir": tmp, "name": "main"})
         finally:
@@ -941,11 +971,16 @@ def run_tests() -> int:
                 os.environ.pop("CODEX_TELEGRAM_REASONING_EFFORT", None)
             else:
                 os.environ["CODEX_TELEGRAM_REASONING_EFFORT"] = old_reasoning
+            if old_thinking is None:
+                os.environ.pop("CODEX_TELEGRAM_THINKING_MODE", None)
+            else:
+                os.environ["CODEX_TELEGRAM_THINKING_MODE"] = old_thinking
         assert_true(answer == "fake answer", "expected fake Codex answer")
         assert_true(session_id.endswith("123456789abc"), "expected captured session id")
         assert_true(stats["last_status"] == "ok", "expected ok run status")
         assert_true("last_latency_seconds" in stats, "expected latency stats")
-        assert_true(stats["last_reasoning_effort"] == "xhigh", "expected reasoning stats")
+        assert_true(stats["last_reasoning_effort"] == "high", "expected reasoning stats")
+        assert_true(stats["last_speed"] == "standard", "expected speed stats")
 
         high_codex = Path(tmp) / "high-codex"
         high_codex.write_text(
