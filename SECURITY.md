@@ -4,8 +4,6 @@ Codex Mission Control is intentionally powerful because it organizes local Codex
 
 Treat Mission Control Relay like SSH into your Mac through Telegram.
 
-![Local-only Mission Control boundary](assets/visuals/local-only.png)
-
 ## Local State
 
 - Mission hub: `~/Codex Mission Control`
@@ -13,7 +11,7 @@ Treat Mission Control Relay like SSH into your Mac through Telegram.
 - LaunchAgent: `~/Library/LaunchAgents/com.codexrelay.agent.plist`
 - Private config: `.env`, written with `0600` permissions
 
-The product is local-only. There is no hosted Mission Control account, sync backend, or web dashboard.
+The product is local-only. There is no hosted account, sync backend, or remote web dashboard.
 
 Project discovery does not move files. `cmc adopt` is a dry run by default; `cmc adopt --write` is the only command that writes Mission Control instruction blocks into discovered project `AGENTS.md` files. Existing `AGENTS.md` files are backed up before changes.
 

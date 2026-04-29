@@ -3,58 +3,138 @@
 Main link:
 
 ```text
-https://github.com/dicnunz/codex-mission-control#readme
+https://github.com/dicnunz/codex-mission-control
 ```
 
 ## Positioning
 
-Codex Mission Control is the local control room for running Codex across real projects.
-
-Tagline:
+Product sentence:
 
 ```text
-Stop running Codex like loose chats. Give it a control room.
+Codex Mission Control gives Codex a control room for your Mac.
 ```
 
-One-line pitch:
+Origin line:
 
 ```text
-One install gives Codex a local mission hub: project discovery, shared-surface locks, approval packets, a private local dashboard, outboxes, and an optional Telegram remote.
+I kept running multiple Codex chats at once, and they started stepping on the same browser and account surfaces. This is the traffic-control layer.
 ```
 
-## Main Post
+GitHub description:
+
+```text
+Codex Mission Control gives Codex a control room for your Mac.
+```
+
+## First X Post
 
 ```text
 i kept running a bunch of codex chats at once and they started stepping on each other
 
-two would try to use the browser or same account surface at the same time, or one would stale-read another's state
+two would try to use the same browser, inbox, github repo, desktop, or account surface at the same time
 
-so i turned the setup into a product:
+so i turned the setup into a small product:
 
 Codex Mission Control
 
-it finds your projects, creates mission workspaces, locks shared surfaces, keeps approval packets, and lets you text the whole thing from Telegram
+it gives Codex a control room for your Mac
 
-local-only, mac-first, no hosted account
+it finds your projects, turns them into missions, locks shared surfaces, keeps approval packets, and lets you text the whole thing from Telegram
+
+local-only
+mac-first
+no hosted account
 
 github.com/dicnunz/codex-mission-control
 ```
 
-Attach the clearest demo asset available. Prefer real terminal + Telegram footage over generated visuals.
+Attach `assets/social-card.png` or the 45-second demo video.
 
-## Visual Stack
+## Follow-Ups
 
-Use generated visuals as proof-shaping, not proof replacement.
-
-Primary:
+Why it exists:
 
 ```text
-assets/visuals/origin-lanes.png
-assets/visuals/hero-control-room.png
-assets/codex-mission-control-demo.mp4
+the hard part is not just memory
+
+it is shared surfaces
+
+browser, email, github, desktop, payments, social accounts
+
+if multiple codex runs can touch them, they need traffic control
 ```
 
-Carousel:
+Install:
+
+```text
+install is:
+
+git clone https://github.com/dicnunz/codex-mission-control.git
+cd codex-mission-control
+./scripts/install.sh
+
+it sets up the local hub first
+telegram is optional
+projects stay where they are
+```
+
+Relay:
+
+```text
+Mission Control Relay is just the phone remote
+
+Telegram -> LaunchAgent -> Codex CLI -> local Mission Control hub
+
+the hub is the product
+the phone is the remote
+```
+
+Safety:
+
+```text
+it is intentionally boring
+
+symlinks
+markdown ops files
+lane locks
+approval packets
+LaunchAgent relay
+
+no hosted account
+no login/MFA/confirmation bypass
+```
+
+## Demo Script
+
+Keep it under 45 seconds:
+
+```text
+1. Fresh clone.
+2. Run ./scripts/install.sh.
+3. Show cmc discover finding one existing project.
+4. Claim BROWSER with FLIGHT.
+5. Try a second BROWSER claim and show held: BROWSER.
+6. Open the local dashboard.
+7. Run cmc packet.
+8. Show Telegram /mission status.
+```
+
+No theory. No architecture talk. Prove the collision layer.
+
+## Visual Order
+
+Post order:
+
+```text
+1. assets/social-card.png
+2. assets/codex-mission-control-demo.mp4
+3. assets/visuals/origin-lanes.png
+4. assets/visuals/lane-lock.png
+5. assets/visuals/approval-packet.png
+6. assets/visuals/phone-remote.png
+```
+
+Carousel order:
 
 ```text
 1. assets/visuals/origin-lanes.png
@@ -65,77 +145,29 @@ Carousel:
 6. assets/visuals/local-only.png
 ```
 
-Rule: generated plates carry mood and shape; terminal/dashboard/Telegram footage carries proof.
+Generated visuals carry mood and shape. Terminal, dashboard, and Telegram footage carry proof.
 
-## Demo Script
+## Audience
 
-Keep it under 45 seconds:
+For:
 
-1. Fresh clone.
-2. Run `./scripts/install.sh`.
-3. Show `cmc discover` finding an existing project.
-4. Show `cmc claim BROWSER FLIGHT "demo"` blocking a second claim.
-5. Show the local dashboard.
-6. Show `cmc packet`.
-7. Show Telegram `/mission status`.
+- Codex users running several chats or projects at once
+- people who use Codex against real local repos
+- people who want Telegram as a private remote
+- people who need approval gates before public/account/payment actions
 
-No theory. No architecture diagram as the main proof.
+Not for:
 
-## Replies
-
-Install:
-
-```text
-install is just:
-
-git clone https://github.com/dicnunz/codex-mission-control.git
-cd codex-mission-control
-./scripts/install.sh
-
-it sets up the local hub first
-opens a private local dashboard
-telegram is optional
-project AGENTS.md adoption is offered during install, defaults yes interactively, and backs up existing files
-```
-
-Why:
-
-```text
-the problem is not "agents need memory"
-
-the problem is shared surfaces
-
-browser, email, github, desktop, payments, social accounts
-
-if multiple codex runs can touch them, they need traffic control
-```
-
-Relay:
-
-```text
-Mission Control Relay is the phone remote inside Mission Control
-
-Telegram -> LaunchAgent -> Codex CLI -> Mission Control hub
-
-same local Mac, bigger operating system around it
-```
-
-Safety:
-
-```text
-it is local-only and intentionally boring
-
-symlink index, markdown ops files, lane locks, approval packets, launchagent relay
-
-no hosted account
-no bypassing logins / MFA / confirmations
-```
+- users who run one simple Codex chat at a time
+- people who want a hosted agent service
+- people who want browser/VNC screen control
+- people trying to bypass logins, MFA, account limits, or confirmations
 
 ## Do Not Claim
 
 - official OpenAI product
 - zero setup
-- hosted agent platform
+- hosted agent service
 - unlimited model usage
 - bypasses confirmations, logins, MFA, CAPTCHAs, macOS privacy, or account limits
 - replaces VNC or remote desktop

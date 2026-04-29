@@ -9,8 +9,10 @@ trap 'rm -rf "$TMP"' EXIT
 printf "Fresh clone test\n"
 printf "source: %s\n" "$SOURCE"
 
+copied_worktree=0
 if [[ "$SOURCE" == "$ROOT" && -n "$(git -C "$ROOT" status --short)" ]]; then
   printf "mode: current working tree copy\n"
+  copied_worktree=1
   mkdir -p "$TMP/codex-mission-control"
   git -C "$ROOT" ls-files -co --exclude-standard -z | while IFS= read -r -d '' file_path; do
     [[ -e "$ROOT/$file_path" ]] || continue
@@ -41,6 +43,12 @@ fi
 ./cmc --hub "$TMP/hub" packet --mission TEST --action inspect --target repo --object readme --proof proof.txt --risk none --why demo --stop done >/dev/null
 CODEX_MISSION_CONTROL_HOME="$TMP/hub" ./scripts/status_ui.sh --no-open >/dev/null
 ./scripts/demo.sh
+if [[ "$copied_worktree" == "0" ]]; then
+  HOME="$TMP/home-update" \
+  CODEX_MISSION_CONTROL_HOME="$TMP/home-update/Codex Mission Control" \
+  PATH="$TMP/bin:$PATH" \
+  ./scripts/update.sh >/dev/null
+fi
 if command -v swiftc >/dev/null 2>&1; then
   ./scripts/build_menu_bar.sh >/dev/null
 fi

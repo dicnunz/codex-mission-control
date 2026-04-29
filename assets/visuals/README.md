@@ -18,4 +18,4 @@ They are intentionally text-light. Exact copy, commands, and product claims live
 | `dashboard-instrument.png` | Dashboard feel |
 | `mission-control-icon.png` | Square icon/avatar |
 
-Generated with the built-in Codex image generation tool only. No local Image API script or API-key route was used for the accepted assets.
+Generated with the built-in ChatGPT image generation tool only. No local Image API script or API-key route was used for the accepted assets.
