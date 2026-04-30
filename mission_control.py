@@ -494,8 +494,15 @@ def lock_status(hub: Path) -> list[tuple[str, dict[str, object]]]:
 
 
 def relay_state() -> str:
-    runtime = Path.home() / "Library" / "Application Support" / "CodexRelay" / "codex_relay.py"
-    env_file = ROOT / ".env"
+    runtime_root = Path(
+        os.environ.get(
+            "CODEX_RELAY_RUNTIME_DIR",
+            str(Path.home() / "Library" / "Application Support" / "CodexRelay"),
+        )
+    ).expanduser()
+    runtime = runtime_root / "codex_relay.py"
+    runtime_env = runtime_root / ".env"
+    repo_env = ROOT / ".env"
     label = os.environ.get("CODEX_RELAY_LABEL", "com.codexrelay.agent")
     running = "unknown"
     if sys.platform == "darwin":
@@ -508,9 +515,9 @@ def relay_state() -> str:
             check=False,
         )
         running = "running" if result.returncode == 0 and ("state = running" in result.stdout or "pid = " in result.stdout) else "not running"
-    if runtime.exists() and env_file.exists():
+    if runtime.exists() and runtime_env.exists():
         return f"installed, {running}"
-    if env_file.exists():
+    if repo_env.exists() or runtime_env.exists():
         return "configured, launchagent missing"
     return "not installed"
 

@@ -157,6 +157,26 @@ def run_tests() -> int:
             assert_true("Codex Operating Overlay" in instructions, "expected optimized instructions")
             doctor = mission_control.doctor_text(hub)
             assert_true("ops files: ok" in doctor, "expected doctor ok")
+            old_runtime_dir = os.environ.get("CODEX_RELAY_RUNTIME_DIR")
+            old_relay_label = os.environ.get("CODEX_RELAY_LABEL")
+            runtime = tmp_path / "runtime"
+            runtime.mkdir()
+            (runtime / "codex_relay.py").write_text("# relay\n")
+            (runtime / ".env").write_text("TELEGRAM_BOT_TOKEN=fake\n")
+            os.environ["CODEX_RELAY_RUNTIME_DIR"] = str(runtime)
+            os.environ["CODEX_RELAY_LABEL"] = "com.codexrelay.test-missing"
+            try:
+                relay_state = mission_control.relay_state()
+                assert_true(relay_state.startswith("installed,"), "expected runtime Relay install detection")
+            finally:
+                if old_runtime_dir is None:
+                    os.environ.pop("CODEX_RELAY_RUNTIME_DIR", None)
+                else:
+                    os.environ["CODEX_RELAY_RUNTIME_DIR"] = old_runtime_dir
+                if old_relay_label is None:
+                    os.environ.pop("CODEX_RELAY_LABEL", None)
+                else:
+                    os.environ["CODEX_RELAY_LABEL"] = old_relay_label
             adopt_preview = mission_control.adopt_agents(hub)
             assert_true("would create" in adopt_preview, "expected dry-run adoption")
             adopt_write = mission_control.adopt_agents(hub, write=True)
