@@ -8,7 +8,7 @@ This is the local command room for Codex work on this Mac.
 
 Run projects as missions, not loose chats. Local work can move quickly. Shared surfaces need lane checks and exact approval packets.
 
-Read `GPT55_OPERATING_SPEC.md` at wakeup. It is the behavior contract: outcome first, minimal but sufficient context, explicit tool use, narrow edits, targeted validation, compact final report.
+Read `CODEX_OPERATING_SPEC.md` at wakeup. It is the behavior contract: outcome first, minimal but sufficient context, explicit tool use, narrow edits, targeted validation, compact final report.
 
 ## Source Of Truth
 

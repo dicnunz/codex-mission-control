@@ -173,7 +173,7 @@ write_frame "$TMP/frame3.svg" \
 write_frame "$TMP/frame4.svg" \
   "INSTRUCTIONS" \
   "Make every mission sharper." \
-  "GPT-5.5-style role, objective, tool gates, validation, output." \
+  "Codex role, objective, tool gates, validation, output." \
   "cmc adopt" \
   "dry run first" \
   "append AGENTS block" \

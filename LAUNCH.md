@@ -46,6 +46,8 @@ mac-first
 no hosted account
 
 github.com/dicnunz/codex-mission-control
+
+looking for 10 Codex-heavy Mac users to try the install and tell me the first blocker
 ```
 
 Attach `assets/social-card.png` or the 45-second demo video.
@@ -76,6 +78,7 @@ cd codex-mission-control
 it sets up the local hub first
 telegram is optional
 projects stay where they are
+AGENTS.md adoption is preview-first
 ```
 
 Relay:
@@ -116,7 +119,7 @@ Keep it under 45 seconds:
 5. Try a second BROWSER claim and show held: BROWSER.
 6. Open the local dashboard.
 7. Run cmc packet.
-8. Show Telegram /mission status.
+8. Show Telegram /mission status if Relay is installed.
 ```
 
 No theory. No architecture talk. Prove the collision layer.

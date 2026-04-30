@@ -32,6 +32,7 @@ PYTHONPATH="$PWD" python3 scripts/smoke_test.py
 ./cmc --hub "$TMP/hub" discover "$PWD" >/dev/null
 ./cmc --hub "$TMP/hub" status >/dev/null
 ./cmc --hub "$TMP/hub" doctor >/dev/null
+CODEX_MISSION_CONTROL_HOME="$TMP/hub" ./cmc dashboard --no-open >/dev/null
 ./cmc --hub "$TMP/hub" instructions >/dev/null
 ./cmc --hub "$TMP/hub" adopt >/dev/null
 ./cmc --hub "$TMP/hub" claim BROWSER TEST "fresh clone" >/dev/null

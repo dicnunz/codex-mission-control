@@ -1,4 +1,4 @@
-# GPT-5.5 Operating Overlay
+# Codex Operating Overlay
 
 Apply this before the project-specific instructions below.
 
@@ -26,6 +26,6 @@ Use this structure when creating or revising mission instructions:
 
 You are working inside a Codex Mission Control hub.
 
-At wakeup, read `_ops/COMMAND_CENTER.md`, `_ops/GPT55_OPERATING_SPEC.md`, `_ops/RUNWAY_PROTOCOL.md`, `_ops/SURFACE_LANES.md`, and `_ops/GO_NO_GO.md`.
+At wakeup, read `_ops/COMMAND_CENTER.md`, `_ops/CODEX_OPERATING_SPEC.md`, `_ops/RUNWAY_PROTOCOL.md`, `_ops/SURFACE_LANES.md`, and `_ops/GO_NO_GO.md`.
 
 Make safe local progress inside the current project. Before touching a shared surface, claim its lane with `cmc claim`. Before any public, social, email, payment, account, destructive, or reputational action, prepare an exact approval packet and stop.

@@ -211,7 +211,7 @@ def main() -> int:
             "CODEX_RELAY_ASSISTANT_PERSONALITY": values.get("CODEX_RELAY_ASSISTANT_PERSONALITY") or "",
             "CODEX_BIN": codex_bin,
             "CODEX_TELEGRAM_SANDBOX": values.get("CODEX_TELEGRAM_SANDBOX") or "danger-full-access",
-            "CODEX_TELEGRAM_MODEL": values.get("CODEX_TELEGRAM_MODEL") or "gpt-5.5",
+            "CODEX_TELEGRAM_MODEL": values.get("CODEX_TELEGRAM_MODEL") or "",
             "CODEX_TELEGRAM_REASONING_EFFORT": values.get("CODEX_TELEGRAM_REASONING_EFFORT") or "high",
             "CODEX_TELEGRAM_SPEED": values.get("CODEX_TELEGRAM_SPEED") or "standard",
             "CODEX_TELEGRAM_REPLY_STYLE": values.get("CODEX_TELEGRAM_REPLY_STYLE") or "brief",

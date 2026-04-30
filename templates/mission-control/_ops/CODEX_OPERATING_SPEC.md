@@ -1,4 +1,4 @@
-# GPT-5.5 Operating Spec
+# Codex Operating Spec
 
 Updated: {{UPDATED_AT}}
 

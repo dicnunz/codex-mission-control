@@ -33,7 +33,7 @@ DEFAULT_LANES = [
 ]
 REQUIRED_OPS_FILES = [
     "COMMAND_CENTER.md",
-    "GPT55_OPERATING_SPEC.md",
+    "CODEX_OPERATING_SPEC.md",
     "RUNWAY_PROTOCOL.md",
     "SURFACE_LANES.md",
     "GLOBAL_DASHBOARD.md",
@@ -347,11 +347,11 @@ def mission_instruction_block(mission: dict[str, str], hub: Path) -> str:
             f"- Mission Control hub: `{display_path(hub)}`",
             f"- Mission outbox: `{display_path(outbox_dir(hub) / (call_sign + '.md'))}`",
             "",
-            "## GPT-5.5 Mission Contract",
+            "## Codex Mission Contract",
             "",
             "- Start with the concrete outcome required this turn.",
-            "- Use the GPT-5.5 operating shape: role, objective, hard rules, tool gates, validation, and terse output.",
-            "- Read only the hub files needed to ground the work: `COMMAND_CENTER.md`, `GPT55_OPERATING_SPEC.md`, `RUNWAY_PROTOCOL.md`, `SURFACE_LANES.md`, and `GO_NO_GO.md`.",
+            "- Use the Mission Control operating shape: role, objective, hard rules, tool gates, validation, and terse output.",
+            "- Read only the hub files needed to ground the work: `COMMAND_CENTER.md`, `CODEX_OPERATING_SPEC.md`, `RUNWAY_PROTOCOL.md`, `SURFACE_LANES.md`, and `GO_NO_GO.md`.",
             "- Use tools when they materially improve correctness; do not stop before required verification passes.",
             "- Keep local edits narrow and project-native.",
             "- Before touching a shared surface, claim the matching lane with `cmc claim`.",
@@ -494,8 +494,15 @@ def lock_status(hub: Path) -> list[tuple[str, dict[str, object]]]:
 
 
 def relay_state() -> str:
-    runtime = Path.home() / "Library" / "Application Support" / "CodexRelay" / "codex_relay.py"
-    env_file = ROOT / ".env"
+    runtime_root = Path(
+        os.environ.get(
+            "CODEX_RELAY_RUNTIME_DIR",
+            str(Path.home() / "Library" / "Application Support" / "CodexRelay"),
+        )
+    ).expanduser()
+    runtime = runtime_root / "codex_relay.py"
+    runtime_env = runtime_root / ".env"
+    repo_env = ROOT / ".env"
     label = os.environ.get("CODEX_RELAY_LABEL", "com.codexrelay.agent")
     running = "unknown"
     if sys.platform == "darwin":
@@ -508,9 +515,9 @@ def relay_state() -> str:
             check=False,
         )
         running = "running" if result.returncode == 0 and ("state = running" in result.stdout or "pid = " in result.stdout) else "not running"
-    if runtime.exists() and env_file.exists():
+    if runtime.exists() and runtime_env.exists():
         return f"installed, {running}"
-    if env_file.exists():
+    if repo_env.exists() or runtime_env.exists():
         return "configured, launchagent missing"
     return "not installed"
 
@@ -658,6 +665,16 @@ def relay_install() -> int:
     return subprocess.call([sys.executable, str(ROOT / "scripts" / "configure.py")])
 
 
+def dashboard_open(hub: Path, no_open: bool = False) -> int:
+    init_hub(hub)
+    env = os.environ.copy()
+    env["CODEX_MISSION_CONTROL_HOME"] = str(hub.expanduser())
+    command = [str(ROOT / "scripts" / "status_ui.sh")]
+    if no_open:
+        command.append("--no-open")
+    return subprocess.call(command, env=env)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="cmc", description="Codex Mission Control")
     parser.add_argument("--hub", default=str(DEFAULT_HUB), help="Mission Control hub folder")
@@ -678,7 +695,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("doctor", help="check hub health")
     sub.add_parser("lanes", help="show surface lanes")
     sub.add_parser("projects", help="show discovered missions")
-    sub.add_parser("instructions", help="print the GPT-5.5-optimized mission instructions")
+    sub.add_parser("instructions", help="print the Mission Control instructions")
 
     adopt = sub.add_parser("adopt", help="install Mission Control AGENTS.md blocks into discovered projects")
     adopt.add_argument("--write", action="store_true", help="write AGENTS.md blocks; default is dry-run")
@@ -704,6 +721,8 @@ def build_parser() -> argparse.ArgumentParser:
     packet.add_argument("--stop", default="stop condition")
 
     sub.add_parser("merge", help="merge mission outboxes into the global dashboard")
+    dashboard = sub.add_parser("dashboard", help="open the local Mission Control dashboard")
+    dashboard.add_argument("--no-open", action="store_true", help="write the dashboard path without opening it")
 
     relay = sub.add_parser("relay", help="Mission Control Relay commands")
     relay_sub = relay.add_subparsers(dest="relay_command", required=True)
@@ -755,6 +774,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "merge":
             print(merge_outboxes(hub))
             return 0
+        if args.command == "dashboard":
+            return dashboard_open(hub, args.no_open)
         if args.command == "relay" and args.relay_command == "install":
             return relay_install()
     except ValueError as exc:

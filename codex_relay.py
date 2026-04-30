@@ -35,7 +35,7 @@ DEFAULT_TIMEOUT_SECONDS = 600
 DEFAULT_MAX_IMAGE_BYTES = 20 * 1024 * 1024
 DEFAULT_IMAGE_RETENTION_DAYS = 7
 MAX_IMAGES_PER_MESSAGE = 4
-DEFAULT_MODEL = "gpt-5.5"
+DEFAULT_MODEL = ""
 DEFAULT_REASONING_EFFORT = "high"
 REASONING_EFFORTS = {"low", "medium", "high", "xhigh"}
 DEFAULT_CODEX_SPEED = "standard"
@@ -144,6 +144,14 @@ def codex_speed_default() -> str:
 
 def reply_style_default() -> str:
     return env_choice("CODEX_TELEGRAM_REPLY_STYLE", DEFAULT_REPLY_STYLE, REPLY_STYLES)
+
+
+def codex_model_default() -> str:
+    return os.environ.get("CODEX_TELEGRAM_MODEL", DEFAULT_MODEL).strip()
+
+
+def codex_model_label() -> str:
+    return codex_model_default() or "Codex default"
 
 
 def now_iso() -> str:
@@ -1003,7 +1011,7 @@ def run_codex(
         return finish(f"Blocked: could not find Codex CLI: {codex_bin}", session_id, "blocked")
 
     sandbox = os.environ.get("CODEX_TELEGRAM_SANDBOX", "danger-full-access")
-    model = os.environ.get("CODEX_TELEGRAM_MODEL", DEFAULT_MODEL).strip()
+    model = codex_model_default()
     approval = os.environ.get("CODEX_TELEGRAM_APPROVAL", "never")
     timeout = env_int("CODEX_TELEGRAM_TIMEOUT_SECONDS", DEFAULT_TIMEOUT_SECONDS)
     thread_name = str(thread.get("name") or DEFAULT_THREAD)
@@ -1234,7 +1242,7 @@ def health_text() -> str:
         (
             "model",
             True,
-            f"{os.environ.get('CODEX_TELEGRAM_MODEL', DEFAULT_MODEL)} / "
+            f"{codex_model_label()} / "
             f"{env_choice('CODEX_TELEGRAM_REASONING_EFFORT', DEFAULT_REASONING_EFFORT, REASONING_EFFORTS)} / "
             f"{codex_speed_default()}",
             "",
@@ -1255,7 +1263,7 @@ def status_text(thread: dict[str, Any], chat_id: Optional[int] = None) -> str:
     lines = [
         f"thread: {thread.get('name', DEFAULT_THREAD)} ({session_status})",
         f"folder: {thread.get('workdir', default_workdir())}",
-        f"model: {os.environ.get('CODEX_TELEGRAM_MODEL', DEFAULT_MODEL)}",
+        f"model: {codex_model_label()}",
         f"reasoning effort: {env_choice('CODEX_TELEGRAM_REASONING_EFFORT', DEFAULT_REASONING_EFFORT, REASONING_EFFORTS)}",
         f"speed: {codex_speed_default()}",
         f"reply style: {thread.get('reply_style') or reply_style_default()}",
@@ -1282,7 +1290,7 @@ def alive_text(thread: dict[str, Any]) -> str:
             f"uptime: {duration_text(time.time() - STARTED_AT)}",
             f"thread: {thread.get('name', DEFAULT_THREAD)} ({session_status})",
             f"folder: {thread.get('workdir', default_workdir())}",
-            f"model: {os.environ.get('CODEX_TELEGRAM_MODEL', DEFAULT_MODEL)}",
+            f"model: {codex_model_label()}",
             f"reasoning: {env_choice('CODEX_TELEGRAM_REASONING_EFFORT', DEFAULT_REASONING_EFFORT, REASONING_EFFORTS)}",
             f"speed: {codex_speed_default()}",
             f"style: {thread.get('reply_style') or reply_style_default()}",
@@ -1957,7 +1965,7 @@ def check_config() -> int:
     print(f"mission_control_home={os.environ.get('CODEX_MISSION_CONTROL_HOME', str(Path.home() / 'Codex Mission Control'))}")
     print(f"codex={shutil.which(codex_bin) or 'missing'}")
     print(f"sandbox={os.environ.get('CODEX_TELEGRAM_SANDBOX', 'danger-full-access')}")
-    print(f"model={os.environ.get('CODEX_TELEGRAM_MODEL', DEFAULT_MODEL)}")
+    print(f"model={codex_model_label()}")
     print(f"reasoning_effort={env_choice('CODEX_TELEGRAM_REASONING_EFFORT', DEFAULT_REASONING_EFFORT, REASONING_EFFORTS)}")
     print(f"speed={codex_speed_default()}")
     print(f"reply_style={reply_style_default()}")

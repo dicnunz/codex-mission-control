@@ -26,8 +26,11 @@ fi
 ok "Mission Control doctor works"
 
 if [[ -f "$ROOT/.env" ]]; then
-  ok ".env exists"
+  ok "repo .env exists"
   "$ROOT/codex_relay.py" --check-config
+elif [[ -f "$RUNTIME/.env" ]]; then
+  ok "runtime .env exists"
+  (cd "$RUNTIME" && "$RUNTIME/codex_relay.py" --check-config)
 else
   warn ".env missing; Mission Control Relay is not installed"
 fi

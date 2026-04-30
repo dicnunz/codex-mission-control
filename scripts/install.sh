@@ -7,7 +7,7 @@ printf "1. preflight local Mac requirements\n"
 printf "2. initialize the local Mission Control hub\n"
 printf "3. discover existing projects as missions\n"
 printf "4. expose the cmc command in ~/.local/bin when possible\n"
-printf "5. optionally install project AGENTS.md blocks\n"
+printf "5. optionally preview/install project AGENTS.md blocks\n"
 printf "6. optionally install Mission Control Relay for Telegram\n"
 printf "7. run local health checks\n\n"
 
@@ -52,9 +52,9 @@ fi
 
 adopt_agents="${CMC_ADOPT_AGENTS:-}"
 if [[ -z "$adopt_agents" && -t 0 ]]; then
-  printf "\nInstall Mission Control AGENTS.md blocks into discovered projects? [Y/n] "
+  printf "\nPreview Mission Control AGENTS.md blocks now. Write them into discovered projects? [y/N] "
   read -r adopt_agents
-  [[ -n "$adopt_agents" ]] || adopt_agents="yes"
+  [[ -n "$adopt_agents" ]] || adopt_agents="no"
 elif [[ -z "$adopt_agents" ]]; then
   adopt_agents="no"
 fi
@@ -64,8 +64,10 @@ case "${adopt_agents:l}" in
     "$ROOT/cmc" adopt --write
     ;;
   *)
-    printf "\nProject AGENTS.md adoption skipped. Preview later with:\n"
-    printf "./cmc adopt\n"
+    printf "\nProject AGENTS.md adoption skipped. Preview the exact changes with:\n"
+    printf "  ./cmc adopt\n"
+    printf "Apply later with backups using:\n"
+    printf "  ./cmc adopt --write\n"
     ;;
 esac
 
@@ -109,6 +111,7 @@ printf "\nUse next:\n"
 printf "  cmc status\n"
 printf "  cmc lanes\n"
 printf "  cmc packet\n"
+printf "  cmc dashboard\n"
 printf "\nTelegram after Relay install:\n"
 printf "  /mission status\n"
 printf "  /mission lanes\n"

@@ -2,13 +2,38 @@
 
 [![ci](https://github.com/dicnunz/codex-mission-control/actions/workflows/ci.yml/badge.svg)](https://github.com/dicnunz/codex-mission-control/actions/workflows/ci.yml)
 
-**Codex Mission Control gives Codex a control room for your Mac.**
+**Stop running Codex like loose chats. Give it local traffic control.**
 
-It finds your projects, creates mission workspaces, locks shared surfaces, keeps approval gates, and lets you text it from your phone.
+Codex Mission Control is for Mac users running several Codex chats against real projects, browsers, inboxes, repos, and account surfaces.
+
+It finds your projects, turns them into missions, locks shared surfaces, keeps approval gates, and lets you text the whole setup from your phone.
 
 Unofficial project. Not affiliated with OpenAI or Telegram.
 
-![Codex Mission Control control-room hero](assets/visuals/hero-control-room.png)
+![Codex Mission Control launch card](assets/social-card.png)
+
+## The Problem
+
+One Codex chat is simple. Several useful Codex chats can collide:
+
+- two chats use the same browser session,
+- one edits a repo while another tries to push it,
+- one drafts an email while another touches the inbox,
+- one reaches a public, payment, or account surface without the rest of the work knowing.
+
+Mission Control makes that coordination explicit with projects, lanes, outboxes, and approval packets.
+
+## Quick Demo
+
+```bash
+git clone https://github.com/dicnunz/codex-mission-control.git
+cd codex-mission-control
+./scripts/demo.sh
+```
+
+No Telegram token needed. The demo proves the core loop: discover a project, claim the browser lane, block a second browser claim, generate an approval packet, and print the phone flow.
+
+Watch the 44-second demo: [assets/codex-mission-control-demo.mp4](assets/codex-mission-control-demo.mp4)
 
 ## What It Does
 
@@ -28,7 +53,7 @@ It creates:
 
 It does not move your projects, run a hosted dashboard, or create another account.
 
-## Why It Exists
+## Why It Works
 
 Multiple Codex chats can all be useful and still wreck each other if they touch the same browser, inbox, GitHub repo, desktop, social account, or payment surface.
 
@@ -41,6 +66,16 @@ cmc claim BROWSER OTHER "also using the browser"
 ```
 
 That is the product: projects become missions, shared surfaces get lanes, and risky actions become approval packets before anything leaves your Mac.
+
+## Who It Is For
+
+- Codex-heavy Mac users with multiple active projects
+- people who run several Codex chats at once
+- builders who want local coordination without a hosted agent service
+- users who want a private Telegram remote for their Mac-side Codex setup
+- anyone who needs public/account/payment actions to stop at exact approval
+
+Not for people running one simple Codex chat at a time.
 
 ## Install
 
@@ -57,7 +92,11 @@ cd codex-mission-control
 ./scripts/install.sh
 ```
 
+Full install notes: [INSTALL.md](INSTALL.md).
+
 The installer initializes the hub, discovers projects under `~/Developer`, `~/Projects`, `~/Documents/Codex`, and the current folder, offers backed-up `AGENTS.md` mission blocks, then runs health checks.
+
+By default, setup does not rewrite your projects. `cmc adopt` previews the `AGENTS.md` blocks Mission Control would add; `cmc adopt --write` applies them with backups.
 
 It also links `cmc` into `~/.local/bin` when possible. If that folder is not on your `PATH`, use `./cmc` from the repo.
 
@@ -67,6 +106,7 @@ The last installer screen gives you the dashboard path and the three commands th
 cmc status
 cmc lanes
 cmc packet
+cmc dashboard
 ```
 
 Install the phone remote during setup or later:
@@ -91,12 +131,13 @@ Install the phone remote during setup or later:
 ./cmc release BROWSER FLIGHT
 ./cmc packet --mission APP --action "send reply" --target "email thread" --object "exact text" --proof "proof/email.png" --risk "outreach" --why "warm inbound" --stop "after one send"
 ./cmc merge
+./cmc dashboard
 ./scripts/status_ui.sh
 ```
 
 Discovery is deliberately boring: `cmc discover` scans the standard Mac roots; `cmc discover /path/to/project` scans only that path; `cmc discover --include-defaults /extra/root` scans both. It creates symlinks in the hub and per-mission outboxes. Your real folders stay where they are.
 
-`cmc adopt` previews the `AGENTS.md` blocks Mission Control would add to discovered projects. `cmc adopt --write` applies them with backups when an `AGENTS.md` already exists. The interactive installer defaults to applying them because that is what makes the hub useful immediately; non-interactive installs skip unless `CMC_ADOPT_AGENTS=yes` is set.
+`cmc adopt` previews the `AGENTS.md` blocks Mission Control would add to discovered projects. `cmc adopt --write` applies them with backups when an `AGENTS.md` already exists. The installer defaults to preview-only unless `CMC_ADOPT_AGENTS=yes` is set.
 
 ## Relay Commands
 
@@ -121,7 +162,7 @@ Mission Control Relay is the optional Telegram remote pointed at the hub:
 
 Normal Telegram messages still go to local Codex through your Mac. Image captions still attach the image to Codex. Relay remains allow-listed to your private Telegram user/chat.
 
-## Demo
+## Local Demo
 
 ```bash
 ./scripts/demo.sh
@@ -134,6 +175,8 @@ Fresh clone check:
 ```bash
 ./scripts/fresh_clone_test.sh
 ```
+
+First-builder feedback script: [docs/FIRST_10_BUILDERS.md](docs/FIRST_10_BUILDERS.md).
 
 ## What It Is Not
 
@@ -163,6 +206,8 @@ Runtime files:
 ~/Library/Application Support/CodexRelay
 ~/Library/LaunchAgents/com.codexrelay.agent.plist
 ```
+
+The Relay runtime path keeps the original `CodexRelay` name for upgrade compatibility.
 
 Update later with:
 
