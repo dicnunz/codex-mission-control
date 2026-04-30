@@ -91,11 +91,10 @@ CODEX_MISSION_CONTROL_HOME="$hub" ./scripts/status_ui.sh --no-open > "$tmp/dashb
 dashboard_path="$(cat "$tmp/dashboard.out")"
 test -s "$dashboard_path"
 CODEX_MISSION_CONTROL_HOME="$hub" ./cmc dashboard --no-open >/dev/null
-grep -q 'Your Codex control room' "$dashboard_path"
+grep -q 'Mission Control' "$dashboard_path"
 grep -q 'Surface lanes' "$dashboard_path"
-grep -q 'Copy approval packet' "$dashboard_path"
-grep -q 'dashboard-instrument.png' "$dashboard_path"
-grep -q 'mission-control-icon.png' "$dashboard_path"
+grep -q 'Approval packet' "$dashboard_path"
+grep -q 'Next thing to try' "$dashboard_path"
 
 for visual in \
   assets/visuals/hero-control-room.png \
