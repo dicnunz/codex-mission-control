@@ -120,7 +120,8 @@ final class RelayMenuApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func isRelayRunning() -> Bool {
         let uid = String(getuid())
-        let result = run(URL(fileURLWithPath: "/bin/launchctl"), arguments: ["print", "gui/\(uid)/com.codexrelay.agent"])
+        let label = ProcessInfo.processInfo.environment["CODEX_RELAY_LABEL"] ?? "com.codexrelay.agent"
+        let result = run(URL(fileURLWithPath: "/bin/launchctl"), arguments: ["print", "gui/\(uid)/\(label)"])
         return result.code == 0 && (result.output.contains("state = running") || result.output.range(of: #"pid = [1-9][0-9]*"#, options: .regularExpression) != nil)
     }
 

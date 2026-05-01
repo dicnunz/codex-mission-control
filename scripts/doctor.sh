@@ -4,11 +4,13 @@ set -eu
 ROOT="$(cd "$(dirname "$0")/.." && pwd -P)"
 LABEL="${CODEX_RELAY_LABEL:-com.codexrelay.agent}"
 RUNTIME="$HOME/Library/Application Support/CodexRelay"
+STATE_DIR="$RUNTIME/state"
 PLIST="$HOME/Library/LaunchAgents/$LABEL.plist"
+FAILED=0
 
 ok() { printf "ok: %s\n" "$1"; }
 warn() { printf "warn: %s\n" "$1"; }
-fail() { printf "fail: %s\n" "$1"; exit 1; }
+fail() { printf "fail: %s\n" "$1"; FAILED=1; }
 
 cd "$ROOT"
 
@@ -36,7 +38,18 @@ fi
 [[ -f "$ROOT/.env" ]] && ok ".env exists" || fail ".env missing; run ./scripts/install.sh"
 
 if [[ -f "$ROOT/.env" ]]; then
-  "$ROOT/codex_relay.py" --check-config
+  "$ROOT/codex_relay.py" --check-config || fail "config check failed"
+fi
+
+[[ -f "$PLIST" ]] && ok "plist exists" || fail "plist missing"
+[[ -f "$RUNTIME/codex_relay.py" ]] && ok "runtime script exists" || fail "runtime script missing"
+if [[ -f "$RUNTIME/codex_relay.py" ]]; then
+  cmp -s "$ROOT/codex_relay.py" "$RUNTIME/codex_relay.py" && ok "runtime script matches repo" || fail "runtime script differs; run ./scripts/install_launch_agent.sh"
+fi
+
+disabled_output="$(launchctl print-disabled "gui/$(id -u)" 2>/dev/null || true)"
+if [[ -n "$disabled_output" ]] && printf "%s\n" "$disabled_output" | grep -Fq "\"$LABEL\" => true"; then
+  fail "LaunchAgent is disabled; run launchctl enable gui/$(id -u)/$LABEL, then ./scripts/install_launch_agent.sh"
 fi
 
 launch_state="$(launchctl print "gui/$(id -u)/$LABEL" 2>/dev/null || true)"
@@ -44,12 +57,6 @@ if [[ -n "$launch_state" ]] && printf "%s\n" "$launch_state" | grep -Eq "state =
   ok "LaunchAgent is running"
 else
   fail "LaunchAgent is not running"
-fi
-
-[[ -f "$PLIST" ]] && ok "plist exists" || fail "plist missing"
-[[ -f "$RUNTIME/codex_relay.py" ]] && ok "runtime script exists" || fail "runtime script missing"
-if [[ -f "$RUNTIME/codex_relay.py" ]]; then
-  cmp -s "$ROOT/codex_relay.py" "$RUNTIME/codex_relay.py" && ok "runtime script matches repo" || fail "runtime script differs; run ./scripts/install_launch_agent.sh"
 fi
 
 shot="$(mktemp -t codex-relay-screen.XXXXXX.jpg)"
@@ -60,7 +67,24 @@ else
 fi
 rm -f "$shot"
 
-python3 -m py_compile "$ROOT/codex_relay.py" "$ROOT/scripts/configure.py"
-ok "python syntax"
+if python3 -m py_compile "$ROOT/codex_relay.py" "$ROOT/scripts/configure.py"; then
+  ok "python syntax"
+else
+  fail "python syntax failed"
+fi
 
-PYTHONPATH="$ROOT" python3 "$ROOT/scripts/smoke_test.py"
+PYTHONPATH="$ROOT" python3 "$ROOT/scripts/smoke_test.py" || fail "smoke tests failed"
+
+if [[ "$FAILED" -ne 0 ]]; then
+  printf "\nnext diagnostics:\n"
+  printf "- ./scripts/status.sh --tail 120\n"
+  printf "- ./scripts/install_launch_agent.sh\n"
+  for log_file in "$STATE_DIR/launchd.err" "$STATE_DIR/launchd.out"; do
+    if [[ -s "$log_file" ]]; then
+      printf "\n== tail -20 %s ==\n" "$log_file"
+      tail -n 20 "$log_file"
+    fi
+  done
+fi
+
+exit "$FAILED"

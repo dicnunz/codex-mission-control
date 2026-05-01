@@ -3,6 +3,8 @@ set -u
 
 ROOT="${CODEX_RELAY_REPO_DIR:-$(cd "$(dirname "$0")/.." && pwd -P)}"
 MODE="${1:-codex}"
+PYTHON="${CODEX_RELAY_PYTHON:-/usr/bin/python3}"
+SCRIPT_NAME="$0"
 
 cd "$ROOT" || exit 2
 
@@ -15,13 +17,45 @@ run_step() {
   "$@"
 }
 
+usage() {
+  say "Usage: $SCRIPT_NAME [codex|restart|reinstall]"
+}
+
+if [[ $# -gt 1 ]]; then
+  usage
+  exit 64
+fi
+
+case "$MODE" in
+  codex|check|self-check|selfcheck)
+    MODE="codex"
+    ;;
+  restart|reinstall)
+    ;;
+  --help|-h|help)
+    usage
+    exit 0
+    ;;
+  *)
+    say "Unknown recovery mode: $MODE"
+    usage
+    exit 64
+    ;;
+esac
+
+if [[ ! -x "$PYTHON" ]]; then
+  say "Python not found: $PYTHON"
+  exit 127
+fi
+
 say "Codex Relay recovery"
 say "repo: $ROOT"
 say "mode: $MODE"
+say "python: $PYTHON"
 
-run_step python3 -m py_compile "$ROOT/codex_relay.py" "$ROOT/scripts/configure.py" || exit $?
-say "==> python3 $ROOT/scripts/smoke_test.py"
-PYTHONPATH="$ROOT" python3 "$ROOT/scripts/smoke_test.py" || exit $?
+run_step "$PYTHON" -m py_compile "$ROOT/codex_relay.py" "$ROOT/scripts/configure.py" || exit $?
+say "==> $PYTHON $ROOT/scripts/smoke_test.py"
+PYTHONPATH="$ROOT" "$PYTHON" "$ROOT/scripts/smoke_test.py" || exit $?
 
 if [[ "$MODE" == "restart" || "$MODE" == "reinstall" ]]; then
   run_step "$ROOT/scripts/install_launch_agent.sh" || exit $?
@@ -66,8 +100,8 @@ printf "%s" "$PROMPT" | "$CODEX" exec \
 CODEX_EXIT=$?
 
 say "==> post-check"
-python3 -m py_compile "$ROOT/codex_relay.py" "$ROOT/scripts/configure.py" || exit $?
-PYTHONPATH="$ROOT" python3 "$ROOT/scripts/smoke_test.py" || exit $?
+"$PYTHON" -m py_compile "$ROOT/codex_relay.py" "$ROOT/scripts/configure.py" || exit $?
+PYTHONPATH="$ROOT" "$PYTHON" "$ROOT/scripts/smoke_test.py" || exit $?
 "$ROOT/scripts/status.sh" || true
 
 exit "$CODEX_EXIT"

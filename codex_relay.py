@@ -149,6 +149,10 @@ class TelegramTLSCertificateError(RuntimeError):
     """Raised when Python cannot verify Telegram's HTTPS certificate."""
 
 
+class RelayConfigError(ValueError):
+    """Raised for invalid relay configuration."""
+
+
 def load_dotenv(path: Path = ENV_PATH) -> None:
     if not path.exists():
         return
@@ -168,9 +172,26 @@ def load_dotenv(path: Path = ENV_PATH) -> None:
         os.environ[key] = value
 
 
+_CHMOD_WARNINGS: set[tuple[str, int]] = set()
+
+
+def chmod_private(path: Path, mode: int) -> None:
+    try:
+        os.chmod(path, mode)
+    except OSError as exc:
+        key = (str(path), mode)
+        if key in _CHMOD_WARNINGS:
+            return
+        _CHMOD_WARNINGS.add(key)
+        print(
+            f"Relay permission warning: could not set {oct(mode)} on {path}: {exc}",
+            file=sys.stderr,
+        )
+
+
 def private_dir(path: Path) -> Path:
-    path.mkdir(parents=True, exist_ok=True)
-    os.chmod(path, 0o700)
+    path.mkdir(parents=True, exist_ok=True, mode=0o700)
+    chmod_private(path, 0o700)
     return path
 
 
@@ -180,7 +201,7 @@ def write_private_text(path: Path, text: str) -> None:
     with os.fdopen(fd, "w") as handle:
         handle.write(text)
     os.replace(tmp, path)
-    os.chmod(path, 0o600)
+    chmod_private(path, 0o600)
 
 
 def write_private_bytes(path: Path, content: bytes) -> None:
@@ -189,7 +210,7 @@ def write_private_bytes(path: Path, content: bytes) -> None:
     with os.fdopen(fd, "wb") as handle:
         handle.write(content)
     os.replace(tmp, path)
-    os.chmod(path, 0o600)
+    chmod_private(path, 0o600)
 
 
 def update_private_env_file(path: Path, updates: dict[str, str]) -> None:
@@ -227,7 +248,7 @@ def env_int(name: str, default: int) -> int:
     try:
         return int(value)
     except ValueError:
-        raise SystemExit(f"{name} must be an integer")
+        raise RelayConfigError(f"{name} must be an integer")
 
 
 def env_bool(name: str, default: bool = False) -> bool:
@@ -238,14 +259,14 @@ def env_bool(name: str, default: bool = False) -> bool:
         return True
     if value in {"0", "false", "no", "off"}:
         return False
-    raise SystemExit(f"{name} must be true or false")
+    raise RelayConfigError(f"{name} must be true or false")
 
 
 def env_choice(name: str, default: str, allowed: set[str]) -> str:
     value = os.environ.get(name, "").strip().lower() or default
     if value not in allowed:
         choices = ", ".join(sorted(allowed))
-        raise SystemExit(f"{name} must be one of: {choices}")
+        raise RelayConfigError(f"{name} must be one of: {choices}")
     return value
 
 
@@ -271,7 +292,7 @@ def thinking_mode_default() -> str:
     try:
         return normalize_thinking_mode(raw)
     except ValueError:
-        raise SystemExit("CODEX_TELEGRAM_THINKING_MODE must be one of: low, medium, high, xhigh")
+        raise RelayConfigError("CODEX_TELEGRAM_THINKING_MODE must be one of: low, medium, high, xhigh")
 
 
 def thread_thinking_mode(thread: dict[str, Any]) -> str:
@@ -357,7 +378,7 @@ def parse_id_set(*names: str) -> set[int]:
             try:
                 values.add(int(chunk))
             except ValueError:
-                raise SystemExit(f"{name} contains a non-numeric id: {chunk!r}")
+                raise RelayConfigError(f"{name} contains a non-numeric id: {chunk!r}")
     return values
 
 
@@ -451,6 +472,16 @@ def telegram_urlopen(request: urllib.request.Request, timeout: int):
     raise TelegramTLSCertificateError(certificate_error_message(first_error, tried)) from first_error
 
 
+def decode_json_response(content: bytes, service: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(content.decode())
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"{service} returned invalid JSON") from exc
+    if not isinstance(payload, dict):
+        raise RuntimeError(f"{service} returned unexpected JSON: {type(payload).__name__}")
+    return payload
+
+
 class TelegramAPI:
     def __init__(self, token: str) -> None:
         self.token = token
@@ -466,7 +497,7 @@ class TelegramAPI:
         request = urllib.request.Request(self.base + method, data=data, method="POST")
         try:
             with telegram_urlopen(request, timeout=timeout) as response:
-                payload = json.loads(response.read().decode())
+                payload = decode_json_response(response.read(), "Telegram")
         except urllib.error.HTTPError as exc:
             body = exc.read().decode(errors="replace")[:600]
             raise RuntimeError(f"Telegram HTTP {exc.code}: {body}") from exc
@@ -558,7 +589,7 @@ class TelegramAPI:
         )
         try:
             with telegram_urlopen(request, timeout=70) as response:
-                payload = json.loads(response.read().decode())
+                payload = decode_json_response(response.read(), "Telegram")
         except urllib.error.HTTPError as exc:
             body_text = exc.read().decode(errors="replace")[:600]
             raise RuntimeError(f"Telegram HTTP {exc.code}: {body_text}") from exc
@@ -609,7 +640,7 @@ class TelegramAPI:
         )
         try:
             with telegram_urlopen(request, timeout=70) as response:
-                payload = json.loads(response.read().decode())
+                payload = decode_json_response(response.read(), "Telegram")
         except urllib.error.HTTPError as exc:
             body_text = exc.read().decode(errors="replace")[:600]
             raise RuntimeError(f"Telegram HTTP {exc.code}: {body_text}") from exc
@@ -630,7 +661,8 @@ class TelegramAPI:
         if offset is not None:
             params["offset"] = offset
         try:
-            return self.call("getUpdates", params, timeout=http_timeout).get("result", [])
+            result = self.call("getUpdates", params, timeout=http_timeout).get("result", [])
+            return result if isinstance(result, list) else []
         except RuntimeError as exc:
             if telegram_timeout_error(exc):
                 return []
@@ -980,6 +1012,12 @@ class TerminalSession:
                 start_new_session=True,
                 env=env,
             )
+        except Exception:
+            try:
+                os.close(master_fd)
+            except OSError:
+                pass
+            raise
         finally:
             os.close(slave_fd)
         self.master_fd = master_fd
@@ -998,33 +1036,44 @@ class TerminalSession:
                 self.output = self.output[-max_chars:]
 
     def _read_loop(self) -> None:
-        while True:
-            process = self.process
-            if process is None:
-                return
-            try:
-                ready, _write, _error = select.select([self.master_fd], [], [], 0.2)
-                if ready:
-                    try:
-                        data = os.read(self.master_fd, 4096)
-                    except BlockingIOError:
-                        data = b""
-                    except OSError:
-                        data = b""
-                    if data:
-                        self._append_output(data.decode(errors="replace"))
-                if process.poll() is not None:
-                    try:
-                        while True:
-                            data = os.read(self.master_fd, 4096)
-                            if not data:
-                                break
-                            self._append_output(data.decode(errors="replace"))
-                    except OSError:
-                        pass
+        try:
+            while True:
+                process = self.process
+                if process is None:
                     return
-            except Exception:
-                return
+                try:
+                    ready, _write, _error = select.select([self.master_fd], [], [], 0.2)
+                    if ready:
+                        try:
+                            data = os.read(self.master_fd, 4096)
+                        except BlockingIOError:
+                            data = b""
+                        except OSError:
+                            data = b""
+                        if data:
+                            self._append_output(data.decode(errors="replace"))
+                    if process.poll() is not None:
+                        try:
+                            while True:
+                                data = os.read(self.master_fd, 4096)
+                                if not data:
+                                    break
+                                self._append_output(data.decode(errors="replace"))
+                        except OSError:
+                            pass
+                        return
+                except Exception:
+                    return
+        finally:
+            self.close_master_fd()
+
+    def close_master_fd(self) -> None:
+        if self.master_fd >= 0:
+            try:
+                os.close(self.master_fd)
+            except OSError:
+                pass
+            self.master_fd = -1
 
     def alive(self) -> bool:
         return self.process is not None and self.process.poll() is None
@@ -1050,17 +1099,8 @@ class TerminalSession:
     def kill(self) -> None:
         process = self.process
         if process is not None and process.poll() is None:
-            signal_process(process, signal.SIGTERM)
-            try:
-                process.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                signal_process(process, signal.SIGKILL)
-        if self.master_fd >= 0:
-            try:
-                os.close(self.master_fd)
-            except OSError:
-                pass
-            self.master_fd = -1
+            terminate_process_tree(process, grace_seconds=2)
+        self.close_master_fd()
 
 
 def terminal_get(chat_id: int, name: str) -> Optional[TerminalSession]:
@@ -1697,7 +1737,7 @@ def capture_screenshot() -> Path:
         raise RuntimeError("screencapture timed out") from exc
     if not target.exists() or target.stat().st_size == 0:
         raise RuntimeError("screencapture produced no image")
-    os.chmod(target, 0o600)
+    chmod_private(target, 0o600)
     return target
 
 
@@ -1721,17 +1761,21 @@ def screenshot_failure_text(error: str) -> str:
 def read_offset(path: Path) -> Optional[int]:
     try:
         return int(path.read_text().strip())
-    except (FileNotFoundError, ValueError):
+    except (FileNotFoundError, OSError, ValueError):
         return None
 
 
 def read_threads(path: Path) -> dict[str, Any]:
     try:
         data = json.loads(path.read_text())
-    except (FileNotFoundError, json.JSONDecodeError):
+    except (FileNotFoundError, OSError, json.JSONDecodeError):
         return {"active_by_chat": {}, "threads_by_chat": {}}
-    data.setdefault("active_by_chat", {})
-    data.setdefault("threads_by_chat", {})
+    if not isinstance(data, dict):
+        return {"active_by_chat": {}, "threads_by_chat": {}}
+    if not isinstance(data.get("active_by_chat"), dict):
+        data["active_by_chat"] = {}
+    if not isinstance(data.get("threads_by_chat"), dict):
+        data["threads_by_chat"] = {}
     return data
 
 
@@ -1759,14 +1803,21 @@ def append_history_event(event: dict[str, Any]) -> None:
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
     with os.fdopen(fd, "a") as handle:
         handle.write(line)
-    os.chmod(path, 0o600)
+    chmod_private(path, 0o600)
+
+
+def safe_append_history_event(event: dict[str, Any]) -> None:
+    try:
+        append_history_event(event)
+    except Exception as exc:
+        print(f"Relay history error: {safe_error_detail(exc)}", file=sys.stderr)
 
 
 def read_history(limit: int = 8) -> list[dict[str, Any]]:
     path = history_path()
     try:
         lines = path.read_text().splitlines()
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError):
         return []
     events: list[dict[str, Any]] = []
     for line in lines[-max(1, limit) :]:
@@ -1781,11 +1832,22 @@ def read_history(limit: int = 8) -> list[dict[str, Any]]:
 
 def chat_threads(data: dict[str, Any], chat_id: int) -> dict[str, dict[str, Any]]:
     chats = data.setdefault("threads_by_chat", {})
-    return chats.setdefault(str(chat_id), {})
+    key = str(chat_id)
+    raw_threads = chats.get(key)
+    if not isinstance(raw_threads, dict):
+        raw_threads = {}
+        chats[key] = raw_threads
+    for name, thread in list(raw_threads.items()):
+        if not isinstance(name, str) or not isinstance(thread, dict):
+            raw_threads.pop(name, None)
+    return raw_threads
 
 
 def active_thread_name(data: dict[str, Any], chat_id: int) -> str:
-    return data.setdefault("active_by_chat", {}).get(str(chat_id), DEFAULT_THREAD)
+    raw_name = data.setdefault("active_by_chat", {}).get(str(chat_id), DEFAULT_THREAD)
+    if not isinstance(raw_name, str) or not THREAD_RE.fullmatch(raw_name):
+        return DEFAULT_THREAD
+    return raw_name
 
 
 def set_active_thread(data: dict[str, Any], chat_id: int, name: str) -> None:
@@ -1794,11 +1856,13 @@ def set_active_thread(data: dict[str, Any], chat_id: int, name: str) -> None:
 
 def active_state(threads_path: Path, chat_id: int) -> tuple[dict[str, Any], str, dict[str, Any]]:
     data = read_threads(threads_path)
-    active_missing = str(chat_id) not in data.setdefault("active_by_chat", {})
+    active_by_chat = data.setdefault("active_by_chat", {})
+    raw_active = active_by_chat.get(str(chat_id))
+    active_missing = raw_active is None
     active_name = active_thread_name(data, chat_id)
     thread = ensure_thread(data, chat_id, active_name)
     set_active_thread(data, chat_id, active_name)
-    if active_missing:
+    if active_missing or raw_active != active_name:
         write_threads(threads_path, data)
     return data, active_name, thread
 
@@ -1813,9 +1877,11 @@ def normalize_thread_name(raw: str) -> str:
 
 
 def ensure_thread(data: dict[str, Any], chat_id: int, name: str) -> dict[str, Any]:
+    if not isinstance(name, str) or not THREAD_RE.fullmatch(name):
+        name = DEFAULT_THREAD
     threads = chat_threads(data, chat_id)
     thread = threads.get(name)
-    if thread is None:
+    if not isinstance(thread, dict):
         thread = {
             "name": name,
             "session_id": "",
@@ -2002,10 +2068,22 @@ def gemini_max_output_tokens() -> int:
 
 def gemini_response_text(payload: dict[str, Any]) -> str:
     candidates = payload.get("candidates") or []
-    if not candidates:
+    if not isinstance(candidates, list) or not candidates:
         raise RuntimeError("Gemini returned no candidates")
-    parts = ((candidates[0].get("content") or {}).get("parts") or [])
-    text_parts = [str(part.get("text") or "") for part in parts if part.get("text")]
+    first = candidates[0]
+    if not isinstance(first, dict):
+        raise RuntimeError("Gemini returned malformed candidate")
+    content = first.get("content") or {}
+    if not isinstance(content, dict):
+        raise RuntimeError("Gemini returned malformed content")
+    parts = content.get("parts") or []
+    if not isinstance(parts, list):
+        raise RuntimeError("Gemini returned malformed parts")
+    text_parts = [
+        str(part.get("text") or "")
+        for part in parts
+        if isinstance(part, dict) and part.get("text")
+    ]
     text = "".join(text_parts).strip()
     if not text:
         raise RuntimeError("Gemini returned no text")
@@ -2053,7 +2131,7 @@ def gemini_generate(prompt: str, response_schema: Optional[dict[str, Any]] = Non
     )
     try:
         with telegram_urlopen(request, timeout=gemini_timeout()) as response:
-            payload = json.loads(response.read().decode())
+            payload = decode_json_response(response.read(), "Gemini")
     except urllib.error.HTTPError as exc:
         raise RuntimeError(f"Gemini HTTP {exc.code}") from exc
     except urllib.error.URLError as exc:
@@ -2243,6 +2321,9 @@ def execute_gemini_plan(
     actions = plan.get("actions") or []
     if not actions:
         return False
+    def reply(text: str, reply_to_message_id: Optional[int] = message_id) -> Optional[int]:
+        return safe_send_message(api, chat_id, text, reply_to_message_id, context="gemini action")
+
     notes: list[str] = []
     for action in actions:
         action_type = action.get("type")
@@ -2474,15 +2555,15 @@ def execute_gemini_plan(
                         item = queue_pending_request(thread, prompt)
                         write_threads(threads_path, data)
                 except ValueError as exc:
-                    api.send_message(chat_id, f"{busy}\n{exc}", message_id)
+                    reply(f"{busy}\n{exc}")
                     return True
                 preface = "\n\n".join(notes + ([plan.get("reply", "").strip()] if plan.get("reply") else []))
                 queued = f"Queued request {item['id']} until thread `{active_name}` is clear: {prompt_preview(item['prompt'])}"
-                api.send_message(chat_id, "\n\n".join(part for part in [preface, queued] if part), message_id)
+                reply("\n\n".join(part for part in [preface, queued] if part))
                 return True
             preface = "\n\n".join(notes + ([plan.get("reply", "").strip()] if plan.get("reply") else []))
             if preface:
-                api.send_message(chat_id, preface, message_id)
+                reply(preface)
             start_background_job(
                 api,
                 chat_id,
@@ -2494,7 +2575,7 @@ def execute_gemini_plan(
             )
             return True
     if notes or plan.get("reply"):
-        api.send_message(chat_id, "\n\n".join(notes + ([plan.get("reply", "").strip()] if plan.get("reply") else [])), message_id)
+        reply("\n\n".join(notes + ([plan.get("reply", "").strip()] if plan.get("reply") else [])))
         return True
     return False
 
@@ -2606,7 +2687,71 @@ def extract_session_id(output: str) -> str:
     return match.group(1) if match else ""
 
 
-def child_pids(pid: int) -> list[int]:
+def darwin_direct_child_pids(pid: int) -> Optional[list[int]]:
+    if sys.platform != "darwin":
+        return None
+    try:
+        import ctypes
+        import struct
+
+        proc_all_pids = 1
+        proc_pidtbsdinfo = 3
+        proc_bsdinfo_size = 256
+        pbi_ppid_offset = 16
+
+        libproc = ctypes.CDLL("/usr/lib/libproc.dylib")
+        libproc.proc_listpids.argtypes = [
+            ctypes.c_uint32,
+            ctypes.c_uint32,
+            ctypes.c_void_p,
+            ctypes.c_int,
+        ]
+        libproc.proc_listpids.restype = ctypes.c_int
+        libproc.proc_pidinfo.argtypes = [
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_uint64,
+            ctypes.c_void_p,
+            ctypes.c_int,
+        ]
+        libproc.proc_pidinfo.restype = ctypes.c_int
+
+        byte_count = libproc.proc_listpids(proc_all_pids, 0, None, 0)
+        if byte_count <= 0:
+            return None
+        pid_count = max(1024, byte_count // ctypes.sizeof(ctypes.c_int) + 1024)
+        pid_buffer = (ctypes.c_int * pid_count)()
+        actual_bytes = libproc.proc_listpids(
+            proc_all_pids,
+            0,
+            pid_buffer,
+            ctypes.sizeof(pid_buffer),
+        )
+        if actual_bytes <= 0:
+            return None
+        children: list[int] = []
+        for candidate in pid_buffer[: actual_bytes // ctypes.sizeof(ctypes.c_int)]:
+            if candidate <= 0:
+                continue
+            info = ctypes.create_string_buffer(proc_bsdinfo_size)
+            actual = libproc.proc_pidinfo(
+                candidate,
+                proc_pidtbsdinfo,
+                0,
+                ctypes.byref(info),
+                ctypes.sizeof(info),
+            )
+            if actual < pbi_ppid_offset + ctypes.sizeof(ctypes.c_uint32):
+                continue
+            parent_pid = struct.unpack_from("I", info.raw, pbi_ppid_offset)[0]
+            if int(parent_pid) == pid:
+                children.append(int(candidate))
+        return children
+    except Exception:
+        return None
+
+
+def pgrep_direct_child_pids(pid: int) -> list[int]:
     try:
         result = subprocess.run(
             ["pgrep", "-P", str(pid)],
@@ -2617,11 +2762,31 @@ def child_pids(pid: int) -> list[int]:
         )
     except Exception:
         return []
-    children = [int(line) for line in result.stdout.splitlines() if line.strip().isdigit()]
+    if result.returncode not in {0, 1}:
+        return []
+    return [int(line) for line in result.stdout.splitlines() if line.strip().isdigit()]
+
+
+def direct_child_pids(pid: int) -> list[int]:
+    children = darwin_direct_child_pids(pid)
+    if children is not None:
+        return children
+    return pgrep_direct_child_pids(pid)
+
+
+def child_pids(pid: int) -> list[int]:
+    seen: set[int] = set()
     descendants: list[int] = []
-    for child in children:
-        descendants.append(child)
-        descendants.extend(child_pids(child))
+
+    def collect(parent_pid: int) -> None:
+        for child in direct_child_pids(parent_pid):
+            if child in seen:
+                continue
+            seen.add(child)
+            descendants.append(child)
+            collect(child)
+
+    collect(pid)
     return descendants
 
 
@@ -2650,6 +2815,23 @@ def signal_process(process: subprocess.Popen[str], sig: signal.Signals) -> None:
         for pid in reversed(descendants):
             signal_pid_group(pid, sig)
         signal_pid_group(process.pid, sig)
+
+
+def terminate_process_tree(process: subprocess.Popen[str], grace_seconds: float = 5.0) -> None:
+    signal_process(process, signal.SIGTERM)
+    deadline = time.monotonic() + max(0.1, grace_seconds)
+    while process.poll() is None and time.monotonic() < deadline:
+        time.sleep(0.05)
+    if process.poll() is None:
+        signal_process(process, signal.SIGKILL)
+    try:
+        process.wait(timeout=1)
+    except subprocess.TimeoutExpired:
+        signal_process(process, signal.SIGKILL)
+        try:
+            process.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            pass
 
 
 def stop_process(process: subprocess.Popen[str]) -> tuple[str, str]:
@@ -2750,14 +2932,6 @@ def run_codex(
             except Exception:
                 pass
 
-    def stop_streaming_process(target: subprocess.Popen[str]) -> None:
-        signal_process(target, signal.SIGTERM)
-        deadline = time.monotonic() + 5
-        while target.poll() is None and time.monotonic() < deadline:
-            time.sleep(0.05)
-        if target.poll() is None:
-            signal_process(target, signal.SIGKILL)
-
     readers: list[threading.Thread] = []
     try:
         process = subprocess.Popen(
@@ -2790,14 +2964,18 @@ def run_codex(
             if returncode is not None:
                 break
             if cancel_event and cancel_event.is_set():
-                stop_streaming_process(process)
+                terminate_process_tree(process)
+                for item in readers:
+                    item.join(timeout=1)
                 return finish(
                     "Canceled: job stopped before Codex replied.",
                     session_id,
                     "canceled",
                 )
             if time.monotonic() >= deadline:
-                stop_streaming_process(process)
+                terminate_process_tree(process)
+                for item in readers:
+                    item.join(timeout=1)
                 return finish(
                     f"Blocked: Codex timed out after {timeout} seconds. "
                     "The task was stopped before it could reply.",
@@ -3125,6 +3303,28 @@ def concise_external_error(service: str, exc: BaseException) -> str:
     return f"{service} failed: {clean[:240]}"
 
 
+def safe_error_detail(exc: BaseException, limit: int = 500) -> str:
+    clean = sanitize_progress_line(str(exc))
+    if not clean:
+        return "internal relay error"
+    return clean[:limit]
+
+
+def safe_send_message(
+    api: TelegramAPI,
+    chat_id: int,
+    text: str,
+    reply_to_message_id: Optional[int] = None,
+    context: str = "",
+) -> Optional[int]:
+    try:
+        return api.send_message(chat_id, text, reply_to_message_id)
+    except Exception as exc:
+        label = f" ({context})" if context else ""
+        print(f"Relay delivery error{label}: {safe_error_detail(exc)}", file=sys.stderr)
+        return None
+
+
 def codex_failure_message(returncode: int, output: str) -> str:
     lowered = output.lower()
     if any(term in lowered for term in ("gateway", "bad gateway", "502", "503", "504", "service unavailable")):
@@ -3386,6 +3586,23 @@ def recovery_script_path() -> Path:
     return ROOT / "scripts" / "recover.sh"
 
 
+def recovery_command_args(arg: str) -> list[str]:
+    try:
+        parts = shlex.split(arg)
+    except ValueError as exc:
+        raise ValueError("Usage: /recover [restart|reinstall]") from exc
+    if not parts:
+        return []
+    if len(parts) > 1:
+        raise ValueError("Usage: /recover [restart|reinstall]")
+    mode = parts[0].lower()
+    if mode in {"codex", "check", "self-check", "selfcheck"}:
+        return []
+    if mode in {"restart", "reinstall"}:
+        return [mode]
+    raise ValueError("Usage: /recover [restart|reinstall]")
+
+
 def sanitize_shell_output(output: str, limit: int = 3600) -> str:
     safe_lines: list[str] = []
     for line in output.splitlines():
@@ -3408,9 +3625,10 @@ def run_recovery_command(job: RelayJob, arg: str) -> tuple[str, int]:
     script = recovery_script_path()
     if not script.exists():
         return f"Recovery script missing: {script}", 127
-    command = ["/bin/zsh", str(script)]
-    if arg.strip():
-        command.extend(arg.strip().split())
+    try:
+        command = ["/bin/zsh", str(script), *recovery_command_args(arg)]
+    except ValueError as exc:
+        return str(exc), 64
     env = os.environ.copy()
     env.setdefault("CODEX_RELAY_REPO_DIR", str(relay_repo_dir()))
     timeout = recovery_timeout_seconds()
@@ -3450,10 +3668,12 @@ def run_recovery_command(job: RelayJob, arg: str) -> tuple[str, int]:
     reader_thread.start()
     while process.poll() is None:
         if job.cancel_event.is_set():
-            signal_process(process, signal.SIGTERM)
+            terminate_process_tree(process)
+            reader_thread.join(timeout=1)
             return "Canceled: recovery stopped before it finished.", 130
         if time.monotonic() - started >= timeout:
-            signal_process(process, signal.SIGTERM)
+            terminate_process_tree(process)
+            reader_thread.join(timeout=1)
             return f"Recovery timed out after {timeout} seconds.", 124
         time.sleep(0.1)
     reader_thread.join(timeout=1)
@@ -3470,11 +3690,21 @@ def run_recovery_worker(
         with TypingPulse(api, chat_id), ProgressPulse(api, chat_id, job, True):
             output, exit_code = run_recovery_command(job, arg)
         if exit_code == 0:
-            api.send_message(chat_id, "Recovery finished.\n\n" + output)
+            safe_send_message(api, chat_id, "Recovery finished.\n\n" + output, context="recovery result")
         else:
-            api.send_message(chat_id, f"Recovery failed with exit {exit_code}.\n\n{output}")
+            safe_send_message(
+                api,
+                chat_id,
+                f"Recovery failed with exit {exit_code}.\n\n{output}",
+                context="recovery failure",
+            )
     except Exception as exc:
-        api.send_message(chat_id, "Recovery failed: " + concise_external_error("local recovery", exc))
+        safe_send_message(
+            api,
+            chat_id,
+            "Recovery failed: " + concise_external_error("local recovery", exc),
+            context="recovery exception",
+        )
     finally:
         finish_job(job)
         cleanup_workers()
@@ -3486,6 +3716,11 @@ def start_recovery_job(
     arg: str,
     reply_to_message_id: Optional[int] = None,
 ) -> None:
+    try:
+        recovery_command_args(arg)
+    except ValueError as exc:
+        api.send_message(chat_id, str(exc), reply_to_message_id)
+        return
     running = jobs_for_thread(chat_id, "recovery")
     if running:
         api.send_message(chat_id, "Recovery is already running.\n" + "\n".join(job_line(job) for job in running), reply_to_message_id)
@@ -3578,14 +3813,14 @@ def run_job_worker(
         else:
             thread = dict(thread_snapshot)
         if record_history:
-            append_history_event(
+            safe_append_history_event(
                 history_event_from_stats(chat_id, thread_name, thread, job, stats)
             )
         if stats.get("last_status") == "ok":
             answer = gemini_polish_answer(prompt_text, answer, thread)
-        api.send_message(chat_id, answer)
+        safe_send_message(api, chat_id, answer, context="job result")
     except Exception as exc:
-        append_history_event(
+        safe_append_history_event(
             {
                 "at": now_iso(),
                 "chat_id": chat_id,
@@ -3595,12 +3830,25 @@ def run_job_worker(
                 "folder": Path(str(thread_snapshot.get("workdir") or default_workdir())).name,
             }
         )
-        api.send_message(chat_id, f"Relay job failed: {exc}")
+        safe_send_message(
+            api,
+            chat_id,
+            f"Relay job failed: {safe_error_detail(exc)}",
+            context="job exception",
+        )
     finally:
         finish_job(job)
         cleanup_workers()
         if persist_thread_state:
-            start_next_pending_job(api, chat_id, threads_path, thread_name)
+            try:
+                start_next_pending_job(api, chat_id, threads_path, thread_name)
+            except Exception as exc:
+                safe_send_message(
+                    api,
+                    chat_id,
+                    f"Relay could not start the next queued request: {safe_error_detail(exc)}",
+                    context="pending queue",
+                )
 
 
 def start_background_job(
@@ -3665,6 +3913,7 @@ def start_next_pending_job(
 ) -> None:
     if jobs_for_thread(chat_id, thread_name):
         return
+    item: Optional[dict[str, Any]] = None
     with THREADS_LOCK:
         data = read_threads(threads_path)
         thread = ensure_thread(data, chat_id, thread_name)
@@ -3681,7 +3930,12 @@ def start_next_pending_job(
         if image_count:
             image_label = "image" if image_count == 1 else "images"
             image_note = f" with {image_count} {image_label}"
-        api.send_message(chat_id, f"Starting queued request {item['id']}{image_note}: {prompt_preview(item['prompt'])}")
+        safe_send_message(
+            api,
+            chat_id,
+            f"Starting queued request {item['id']}{image_note}: {prompt_preview(item['prompt'])}",
+            context="queued request start",
+        )
         start_background_job(
             api,
             chat_id,
@@ -3691,8 +3945,25 @@ def start_next_pending_job(
             item["prompt"],
             image_paths,
         )
-    except Exception:
-        pass
+    except Exception as exc:
+        if item is not None:
+            try:
+                with THREADS_LOCK:
+                    data = read_threads(threads_path)
+                    thread = ensure_thread(data, chat_id, thread_name)
+                    items = pending_requests(thread)
+                    if not any(existing.get("id") == item.get("id") for existing in items):
+                        items.insert(0, item)
+                        save_pending_requests(thread, items)
+                        write_threads(threads_path, data)
+            except Exception as requeue_exc:
+                print(f"Relay pending requeue error: {safe_error_detail(requeue_exc)}", file=sys.stderr)
+        safe_send_message(
+            api,
+            chat_id,
+            f"Relay could not start queued request {item.get('id') if item else ''}: {safe_error_detail(exc)}",
+            context="queued request failure",
+        )
 
 
 def capabilities_text() -> str:
@@ -4242,10 +4513,12 @@ def handle_message(
                 return
         except Exception as exc:
             if env_bool("CODEX_RELAY_GEMINI_ERROR_NOTICES", True):
-                api.send_message(
+                safe_send_message(
+                    api,
                     chat_id,
                     concise_external_error("Gemini assist", exc) + "\nContinuing with the normal Codex path.",
                     message_id,
+                    context="gemini notice",
                 )
 
     with THREADS_LOCK:
@@ -4293,6 +4566,75 @@ def handle_message(
         image_paths,
         message_id,
     )
+
+
+def send_error_if_authorized(
+    api: TelegramAPI,
+    message: dict[str, Any],
+    allowed_users: set[int],
+    allowed_chats: set[int],
+    text: str,
+    context: str,
+) -> None:
+    chat = message.get("chat") or {}
+    sender = message.get("from") or {}
+    chat_id = int_or_none(chat.get("id"))
+    if chat_id is None:
+        return
+    chat_type = str(chat.get("type") or "private")
+    user_id = int_or_none(sender.get("id"))
+    if chat_type != "private":
+        return
+    if not authorized(user_id, chat_id, chat_type, allowed_users, allowed_chats):
+        return
+    safe_send_message(
+        api,
+        chat_id,
+        text,
+        int_or_none(message.get("message_id")),
+        context=context,
+    )
+
+
+def send_config_error_if_authorized(
+    api: TelegramAPI,
+    message: dict[str, Any],
+    allowed_users: set[int],
+    allowed_chats: set[int],
+    exc: RelayConfigError,
+) -> None:
+    send_error_if_authorized(
+        api,
+        message,
+        allowed_users,
+        allowed_chats,
+        f"Relay configuration error: {safe_error_detail(exc)}",
+        "config error",
+    )
+
+
+def handle_message_safely(
+    api: TelegramAPI,
+    message: dict[str, Any],
+    allowed_users: set[int],
+    allowed_chats: set[int],
+    threads_path: Path,
+) -> None:
+    try:
+        handle_message(api, message, allowed_users, allowed_chats, threads_path)
+    except RelayConfigError as exc:
+        send_config_error_if_authorized(api, message, allowed_users, allowed_chats, exc)
+        print(f"Relay configuration error: {safe_error_detail(exc)}", file=sys.stderr)
+    except Exception as exc:
+        send_error_if_authorized(
+            api,
+            message,
+            allowed_users,
+            allowed_chats,
+            f"Relay internal error: {safe_error_detail(exc)}",
+            "handler exception",
+        )
+        print(f"Relay handler error: {safe_error_detail(exc)}", file=sys.stderr)
 
 
 def check_config() -> int:
@@ -4343,18 +4685,25 @@ def main() -> int:
     parser.add_argument("--check-config", action="store_true", help="Validate config without polling Telegram.")
     args = parser.parse_args()
 
-    load_dotenv()
-    if args.check_config:
-        return check_config()
+    try:
+        load_dotenv()
+        if args.check_config:
+            return check_config()
 
-    token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-    if not token:
-        print("Missing TELEGRAM_BOT_TOKEN. Get one from @BotFather, put it in .env, then rerun.", file=sys.stderr)
+        token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+        if not token:
+            print("Missing TELEGRAM_BOT_TOKEN. Get one from @BotFather, put it in .env, then rerun.", file=sys.stderr)
+            return 2
+
+        allowed_users = parse_id_set("TELEGRAM_ALLOWED_USER_ID", "TELEGRAM_ALLOWED_USER_IDS")
+        allowed_chats = parse_id_set("TELEGRAM_ALLOWED_CHAT_ID", "TELEGRAM_ALLOWED_CHAT_IDS")
+        directory = state_dir()
+    except RelayConfigError as exc:
+        print(f"Relay configuration error: {safe_error_detail(exc)}", file=sys.stderr)
         return 2
-
-    allowed_users = parse_id_set("TELEGRAM_ALLOWED_USER_ID", "TELEGRAM_ALLOWED_USER_IDS")
-    allowed_chats = parse_id_set("TELEGRAM_ALLOWED_CHAT_ID", "TELEGRAM_ALLOWED_CHAT_IDS")
-    directory = state_dir()
+    except OSError as exc:
+        print(f"Relay startup error: {safe_error_detail(exc)}", file=sys.stderr)
+        return 2
     offset_path = directory / "offset"
     threads_path = directory / "threads.json"
     api = TelegramAPI(token)
@@ -4373,11 +4722,15 @@ def main() -> int:
             for update in api.get_updates(offset):
                 if SHUTDOWN_EVENT.is_set():
                     break
-                update_id = int(update["update_id"])
+                if not isinstance(update, dict):
+                    continue
+                update_id = int_or_none(update.get("update_id"))
+                if update_id is None:
+                    continue
                 offset = update_id + 1
                 write_private_text(offset_path, str(offset))
                 message = update.get("message")
-                if message:
+                if isinstance(message, dict):
                     group_key = media_group_key(message)
                     if group_key:
                         _seen_at, messages = pending_media_groups.get(group_key, (0.0, []))
@@ -4386,7 +4739,7 @@ def main() -> int:
                     else:
                         standalone_messages.append(message)
             for message in standalone_messages:
-                handle_message(api, message, allowed_users, allowed_chats, threads_path)
+                handle_message_safely(api, message, allowed_users, allowed_chats, threads_path)
             now = time.monotonic()
             ready_keys = [
                 key
@@ -4395,7 +4748,7 @@ def main() -> int:
             ]
             for key in ready_keys:
                 _seen_at, messages = pending_media_groups.pop(key)
-                handle_message(
+                handle_message_safely(
                     api,
                     merge_media_group_messages(messages),
                     allowed_users,
@@ -4409,7 +4762,11 @@ def main() -> int:
             join_workers()
             return 0
         except Exception as exc:
-            print(f"Relay error: {exc}", file=sys.stderr)
+            print(
+                f"Relay error ({type(exc).__name__}): {safe_error_detail(exc)}",
+                file=sys.stderr,
+                flush=True,
+            )
             time.sleep(5)
     cancel_all_jobs()
     join_workers()

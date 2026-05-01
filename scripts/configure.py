@@ -41,7 +41,10 @@ def private_write(path: Path, text: str) -> None:
     with os.fdopen(fd, "w") as handle:
         handle.write(text)
     os.replace(tmp, path)
-    os.chmod(path, 0o600)
+    try:
+        os.chmod(path, 0o600)
+    except OSError as exc:
+        print(f"warn: could not set 0600 on {path}: {exc}", file=sys.stderr)
 
 
 def load_env() -> dict[str, str]:

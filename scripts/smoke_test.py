@@ -3,13 +3,14 @@
 
 from __future__ import annotations
 
-import tempfile
 import os
+import subprocess
 import ssl
 import sys
 import threading
 import json
 import time
+import tempfile
 import importlib.util
 import contextlib
 import io
@@ -78,6 +79,47 @@ class FakeTelegram(relay.TelegramAPI):
                 },
             )
         )
+
+
+class FailingTelegram(FakeTelegram):
+    def send_message(
+        self, chat_id: int, text: str, reply_to_message_id: Optional[int] = None
+    ) -> Optional[int]:
+        self.calls.append(
+            (
+                "sendMessage",
+                {
+                    "chat_id": chat_id,
+                    "text": text,
+                    "reply_to_message_id": reply_to_message_id,
+                },
+            )
+        )
+        raise RuntimeError("Telegram send failed")
+
+
+class FirstSendFailingTelegram(FakeTelegram):
+    def __init__(self) -> None:
+        super().__init__()
+        self.failed_once = False
+
+    def send_message(
+        self, chat_id: int, text: str, reply_to_message_id: Optional[int] = None
+    ) -> Optional[int]:
+        self.calls.append(
+            (
+                "sendMessage",
+                {
+                    "chat_id": chat_id,
+                    "text": text,
+                    "reply_to_message_id": reply_to_message_id,
+                },
+            )
+        )
+        if not self.failed_once:
+            self.failed_once = True
+            raise RuntimeError("first send failed")
+        return len(self.calls)
 
 
 class FakeResponse:
@@ -346,6 +388,61 @@ def run_tests() -> int:
     assert_true("health:" in health, "expected health output")
     assert_true("deep check: /tools" in health, "expected health to point at deep check")
 
+    old_typing_interval = os.environ.get("CODEX_TELEGRAM_TYPING_INTERVAL_SECONDS")
+    os.environ["CODEX_TELEGRAM_TYPING_INTERVAL_SECONDS"] = "bad"
+    fake_config_error = FakeTelegram()
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            relay.handle_message_safely(
+                fake_config_error,
+                {
+                    "message_id": 22,
+                    "chat": {"id": 123, "type": "private"},
+                    "from": {"id": 1},
+                    "text": "/status",
+                },
+                {1},
+                {123},
+                Path("/tmp/codex-relay-unused-threads.json"),
+            )
+    finally:
+        if old_typing_interval is None:
+            os.environ.pop("CODEX_TELEGRAM_TYPING_INTERVAL_SECONDS", None)
+        else:
+            os.environ["CODEX_TELEGRAM_TYPING_INTERVAL_SECONDS"] = old_typing_interval
+    assert_true(fake_config_error.calls, "expected runtime config error reply")
+    assert_true(
+        "Relay configuration error" in str(fake_config_error.calls[-1][1].get("text")),
+        "expected structured runtime config error",
+    )
+
+    original_handle_message = relay.handle_message
+    fake_internal_error = FakeTelegram()
+    try:
+        relay.handle_message = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            RuntimeError("state write failed")
+        )
+        with contextlib.redirect_stderr(io.StringIO()):
+            relay.handle_message_safely(
+                fake_internal_error,
+                {
+                    "message_id": 23,
+                    "chat": {"id": 123, "type": "private"},
+                    "from": {"id": 1},
+                    "text": "/status",
+                },
+                {1},
+                {123},
+                Path("/tmp/codex-relay-unused-threads.json"),
+            )
+    finally:
+        relay.handle_message = original_handle_message
+    assert_true(fake_internal_error.calls, "expected internal handler error reply")
+    assert_true(
+        "Relay internal error" in str(fake_internal_error.calls[-1][1].get("text")),
+        "expected structured internal handler error",
+    )
+
     old_urlopen = relay.urllib.request.urlopen
     old_context = relay.ssl.create_default_context
     try:
@@ -377,6 +474,24 @@ def run_tests() -> int:
                     os.environ["CODEX_RELAY_CA_FILE"] = old_ca
 
         relay.ssl.create_default_context = old_context
+        relay.urllib.request.urlopen = lambda *_args, **_kwargs: FakeResponse([b"not-json"])
+        try:
+            relay.TelegramAPI("token").call("getMe")
+        except RuntimeError as exc:
+            assert_true("invalid JSON" in str(exc), "expected invalid Telegram JSON to be structured")
+        else:
+            raise SystemExit("expected invalid Telegram JSON failure")
+        relay.urllib.request.urlopen = lambda *_args, **_kwargs: FakeResponse([b"[]"])
+        try:
+            relay.TelegramAPI("token").call("getMe")
+        except RuntimeError as exc:
+            assert_true("unexpected JSON" in str(exc), "expected non-object Telegram JSON to be structured")
+        else:
+            raise SystemExit("expected non-object Telegram JSON failure")
+        non_list_updates = relay.TelegramAPI("token")
+        non_list_updates.call = lambda *_args, **_kwargs: {"ok": True, "result": {"bad": "shape"}}
+        assert_true(non_list_updates.get_updates(None) == [], "expected malformed update result to be ignored")
+
         relay.urllib.request.urlopen = lambda *_args, **_kwargs: FakeResponse([b"ok"])
         assert_true(relay.TelegramAPI("token").download_file("file.jpg", max_bytes=2) == b"ok", "expected bounded download")
         relay.urllib.request.urlopen = lambda *_args, **_kwargs: FakeResponse([b"abc"])
@@ -418,6 +533,17 @@ def run_tests() -> int:
     assert_true("- none" in relay.jobs_text(123, thread), "expected empty jobs output")
     assert_true("last run: ok; 1.2s; 1 image" in relay.latency_text(thread), "expected latency text")
     assert_true("./scripts/update.sh" in relay.update_text(), "expected update command text")
+    status_help = subprocess.run(
+        ["/bin/zsh", str(ROOT / "scripts" / "status.sh"), "--help"],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        check=False,
+        timeout=10,
+    )
+    assert_true(status_help.returncode == 0, "expected status help to pass")
+    assert_true("--tail" in status_help.stdout, "expected status help to document log tailing")
 
     with tempfile.TemporaryDirectory() as tmp:
         old_state_dir = os.environ.get("CODEX_TELEGRAM_STATE_DIR")
@@ -426,6 +552,71 @@ def run_tests() -> int:
         relay.write_private_bytes(target, b"ok")
         assert_true(target.read_bytes() == b"ok", "expected private byte write")
         assert_true(oct(target.stat().st_mode & 0o777) == "0o600", "expected private file mode")
+        original_configure_chmod = configure.os.chmod
+        try:
+            configure_target = Path(tmp) / "configure.env"
+            configure.os.chmod = lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                PermissionError("chmod blocked")
+            )
+            configure_stderr = io.StringIO()
+            with contextlib.redirect_stderr(configure_stderr):
+                configure.private_write(configure_target, "TOKEN=redacted\n")
+            assert_true(
+                configure_target.read_text() == "TOKEN=redacted\n",
+                "expected configure write despite chmod warning",
+            )
+            assert_true(
+                "could not set 0600" in configure_stderr.getvalue(),
+                "expected configure chmod warning",
+            )
+        finally:
+            configure.os.chmod = original_configure_chmod
+        original_chmod = relay.os.chmod
+        try:
+            relay._CHMOD_WARNINGS.clear()
+
+            def blocked_chmod(_path: object, _mode: int) -> None:
+                raise PermissionError("chmod blocked")
+
+            relay.os.chmod = blocked_chmod
+            permission_stderr = io.StringIO()
+            with contextlib.redirect_stderr(permission_stderr):
+                restricted_dir = relay.private_dir(Path(tmp) / "restricted-state")
+                restricted_file = Path(tmp) / "restricted.txt"
+                relay.write_private_text(restricted_file, "ok")
+            assert_true(restricted_dir.exists(), "expected private dir despite chmod warning")
+            assert_true(restricted_file.read_text() == "ok", "expected private write despite chmod warning")
+            assert_true(
+                "Relay permission warning" in permission_stderr.getvalue(),
+                "expected chmod warning to be logged",
+            )
+        finally:
+            relay.os.chmod = original_chmod
+            relay._CHMOD_WARNINGS.clear()
+        corrupt_threads = Path(tmp) / "corrupt-threads.json"
+        corrupt_threads.write_text("[]")
+        assert_true(
+            relay.read_threads(corrupt_threads) == {"active_by_chat": {}, "threads_by_chat": {}},
+            "expected non-object thread state to reset safely",
+        )
+        corrupt_threads.write_text('{"active_by_chat": [], "threads_by_chat": null}')
+        repaired = relay.read_threads(corrupt_threads)
+        assert_true(
+            repaired == {"active_by_chat": {}, "threads_by_chat": {}},
+            "expected malformed thread maps to reset safely",
+        )
+        nested_corrupt = {
+            "active_by_chat": {"123": ["bad"]},
+            "threads_by_chat": {"123": {"main": [], "ok": {"name": "ok", "workdir": tmp}}},
+        }
+        corrupt_threads.write_text(json.dumps(nested_corrupt))
+        data, active_name, repaired_thread = relay.active_state(corrupt_threads, 123)
+        assert_true(active_name == "main", "expected malformed active thread to reset")
+        assert_true(isinstance(repaired_thread, dict), "expected malformed nested thread to be repaired")
+        assert_true(
+            "ok" in data["threads_by_chat"]["123"],
+            "expected valid nested thread to be preserved",
+        )
 
         relay.append_history_event(
             {
@@ -779,12 +970,29 @@ def run_tests() -> int:
         try:
             recovery_job = relay.RelayJob(123, "recovery", 0)
             output, exit_code = relay.run_recovery_command(recovery_job, "")
+            bad_output, bad_exit_code = relay.run_recovery_command(recovery_job, "restart extra")
         finally:
             if old_recovery_script is None:
                 os.environ.pop("CODEX_RELAY_RECOVERY_SCRIPT", None)
             else:
                 os.environ["CODEX_RELAY_RECOVERY_SCRIPT"] = old_recovery_script
         assert_true(exit_code == 0 and "recover-ok" in output, "expected recovery script runner")
+        assert_true(
+            bad_exit_code == 64 and "/recover" in bad_output,
+            "expected invalid recovery mode to be rejected",
+        )
+
+        recover_check = subprocess.run(
+            ["/bin/zsh", str(ROOT / "scripts" / "recover.sh"), "bogus"],
+            cwd=ROOT,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+        assert_true(recover_check.returncode == 64, "expected recover.sh to reject unknown modes")
+        assert_true("Usage:" in recover_check.stdout, "expected recover.sh usage")
 
         relay.handle_message(
             fake_style,
@@ -1029,6 +1237,79 @@ def run_tests() -> int:
         assert_true("exit 9" in answer, "expected exit code in sanitized failure")
         assert_true(stats["last_status"] == "failed", "expected failed status")
 
+        original_run_codex = relay.run_codex
+        try:
+            relay.run_codex = lambda *_args, **_kwargs: (
+                "worker answer",
+                "",
+                {
+                    "last_run_at": relay.now_iso(),
+                    "last_latency_seconds": 0.1,
+                    "last_status": "ok",
+                    "last_image_count": 0,
+                    "last_reasoning_effort": "high",
+                    "last_speed": "standard",
+                },
+            )
+            worker_job = relay.RelayJob(123, "main", 0, "worker prompt")
+            relay.register_job(worker_job)
+            with contextlib.redirect_stderr(io.StringIO()):
+                relay.run_job_worker(
+                    FailingTelegram(),
+                    123,
+                    threads_path,
+                    "main",
+                    "worker prompt",
+                    {"workdir": tmp, "name": "main"},
+                    [],
+                    worker_job,
+                    persist_thread_state=False,
+                )
+            assert_true(relay.find_job(123, worker_job.id) is None, "expected failed delivery not to leave active job")
+        finally:
+            relay.run_codex = original_run_codex
+
+        original_run_codex = relay.run_codex
+        try:
+            relay.run_codex = lambda *_args, **_kwargs: (
+                "started despite preface failure",
+                "",
+                {
+                    "last_run_at": relay.now_iso(),
+                    "last_latency_seconds": 0.1,
+                    "last_status": "ok",
+                    "last_image_count": 0,
+                    "last_reasoning_effort": "high",
+                    "last_speed": "standard",
+                },
+            )
+            flaky_preface = FirstSendFailingTelegram()
+            with contextlib.redirect_stderr(io.StringIO()):
+                handled = relay.execute_gemini_plan(
+                    flaky_preface,
+                    123,
+                    77,
+                    threads_path,
+                    {
+                        "reply": "preface",
+                        "actions": [{"type": "run_codex", "prompt": "do the work"}],
+                    },
+                    "do the work",
+                )
+                relay.join_workers(timeout=2)
+            assert_true(handled, "expected Gemini plan to handle run_codex action")
+            assert_true(flaky_preface.failed_once, "expected preface delivery failure to be exercised")
+            assert_true(
+                any(
+                    call[0] == "sendMessage"
+                    and "started despite preface failure" in str(call[1].get("text"))
+                    for call in flaky_preface.calls
+                ),
+                "expected Codex job to continue after preface send failure",
+            )
+        finally:
+            relay.run_codex = original_run_codex
+
         old_gemini_key = os.environ.get("CODEX_RELAY_GEMINI_API_KEY")
         original_gemini_generate = relay.gemini_generate
         original_telegram_urlopen = relay.telegram_urlopen
@@ -1067,6 +1348,15 @@ def run_tests() -> int:
                 and body["generationConfig"]["maxOutputTokens"] == 4096,
                 "expected Gemini max output tokens in generation config",
             )
+            relay.telegram_urlopen = lambda *_args, **_kwargs: FakeResponse(
+                [b'{"candidates":["bad-candidate"]}']
+            )
+            try:
+                relay.gemini_generate("hello")
+            except RuntimeError as exc:
+                assert_true("malformed candidate" in str(exc), "expected malformed Gemini candidate error")
+            else:
+                raise SystemExit("expected malformed Gemini candidate failure")
         finally:
             relay.telegram_urlopen = original_telegram_urlopen
             os.environ.pop("CODEX_RELAY_GEMINI_MAX_OUTPUT_TOKENS", None)

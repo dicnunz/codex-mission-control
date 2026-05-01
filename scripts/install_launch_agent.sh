@@ -9,23 +9,66 @@ RUNTIME="$HOME/Library/Application Support/CodexRelay"
 STATE_DIR="$RUNTIME/state"
 WORKDIR="$HOME"
 
+fail_install() {
+  printf "fail: %s\n" "$1" >&2
+  printf "diagnostics: ./scripts/status.sh --tail 120\n" >&2
+  printf "retry from a logged-in macOS Terminal as this user; do not use sudo for this user LaunchAgent.\n" >&2
+  exit "${2:-1}"
+}
+
+warn_install() {
+  printf "warn: %s\n" "$1" >&2
+}
+
+launchctl_optional() {
+  local description="$1"
+  shift
+  local output
+  output="$(mktemp -t codex-relay-launchctl.XXXXXX)"
+  if "$@" >"$output" 2>&1; then
+    rm -f "$output"
+    return 0
+  fi
+  warn_install "$description failed; continuing because the service may not exist yet"
+  sed -n '1,20p' "$output" >&2
+  rm -f "$output"
+  return 0
+}
+
+launchctl_required() {
+  local description="$1"
+  shift
+  local output rc
+  output="$(mktemp -t codex-relay-launchctl.XXXXXX)"
+  if "$@" >"$output" 2>&1; then
+    cat "$output"
+    rm -f "$output"
+    return 0
+  fi
+  rc=$?
+  printf "launchctl output:\n" >&2
+  sed -n '1,80p' "$output" >&2
+  rm -f "$output"
+  fail_install "$description failed with exit $rc"
+}
+
 if [ ! -f "$ROOT/.env" ]; then
   echo "Missing $ROOT/.env. Copy .env.example to .env and fill it first." >&2
   exit 2
 fi
 
-"$ROOT/codex_relay.py" --check-config >/dev/null
+"$PYTHON" "$ROOT/codex_relay.py" --check-config >/dev/null || fail_install "repo config check failed" 2
 
-mkdir -p "$HOME/Library/LaunchAgents" "$RUNTIME" "$STATE_DIR"
-chmod 700 "$RUNTIME" "$STATE_DIR"
+mkdir -p "$HOME/Library/LaunchAgents" "$RUNTIME" "$STATE_DIR" || fail_install "could not create LaunchAgent runtime directories"
+chmod 700 "$RUNTIME" "$STATE_DIR" || fail_install "could not make runtime directories private"
 umask 077
-: > "$STATE_DIR/launchd.out"
-: > "$STATE_DIR/launchd.err"
-chmod 600 "$STATE_DIR/launchd.out" "$STATE_DIR/launchd.err"
+: > "$STATE_DIR/launchd.out" || fail_install "could not create launch stdout log"
+: > "$STATE_DIR/launchd.err" || fail_install "could not create launch stderr log"
+chmod 600 "$STATE_DIR/launchd.out" "$STATE_DIR/launchd.err" || fail_install "could not make launch logs private"
 
-install -m 700 "$ROOT/codex_relay.py" "$RUNTIME/codex_relay.py"
+install -m 700 "$ROOT/codex_relay.py" "$RUNTIME/codex_relay.py" || fail_install "could not install runtime script"
 
-python3 - <<PY
+if ! "$PYTHON" - <<PY
 from pathlib import Path
 root = Path("$ROOT")
 runtime = Path("$RUNTIME")
@@ -103,8 +146,11 @@ for key, value in updates.items():
 target.write_text("\\n".join(out) + "\\n")
 target.chmod(0o600)
 PY
+then
+  fail_install "could not write runtime .env" 2
+fi
 
-cat > "$PLIST" <<PLIST
+if ! cat > "$PLIST" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -131,11 +177,16 @@ cat > "$PLIST" <<PLIST
 </dict>
 </plist>
 PLIST
+then
+  fail_install "could not write LaunchAgent plist"
+fi
 
-chmod 600 "$PLIST"
+chmod 600 "$PLIST" || fail_install "could not make LaunchAgent plist private"
+plutil -lint "$PLIST" >/dev/null || fail_install "LaunchAgent plist is invalid"
+"$PYTHON" "$RUNTIME/codex_relay.py" --check-config >/dev/null || fail_install "runtime config check failed" 2
 
-launchctl bootout "gui/$(id -u)" "$PLIST" >/dev/null 2>&1 || true
-launchctl enable "gui/$(id -u)/$LABEL" >/dev/null 2>&1 || true
-launchctl bootstrap "gui/$(id -u)" "$PLIST"
-launchctl kickstart -k "gui/$(id -u)/$LABEL"
-launchctl print "gui/$(id -u)/$LABEL" | sed -n '1,40p'
+launchctl_optional "launchctl bootout" launchctl bootout "gui/$(id -u)" "$PLIST"
+launchctl_required "launchctl enable" launchctl enable "gui/$(id -u)/$LABEL"
+launchctl_required "launchctl bootstrap" launchctl bootstrap "gui/$(id -u)" "$PLIST"
+launchctl_required "launchctl kickstart" launchctl kickstart -k "gui/$(id -u)/$LABEL"
+launchctl_required "launchctl print" launchctl print "gui/$(id -u)/$LABEL"
