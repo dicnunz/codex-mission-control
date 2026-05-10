@@ -21,6 +21,9 @@ grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-mini-audit' .github/ISSUE_
 grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-audit' .github/ISSUE_TEMPLATE/paid-setup-audit.yml
 grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' README.md
 grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' .github/FUNDING.yml
+grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' scripts/install.sh
+grep -q 'optional self-serve browser/operator kit' scripts/install.sh
+grep -q './cmc support' scripts/update.sh
 
 hub="$tmp/hub"
 proj_root="$tmp/projects"
