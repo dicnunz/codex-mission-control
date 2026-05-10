@@ -76,5 +76,12 @@ Full workflow audit:
 https://nicdunz.gumroad.com/l/agent-workflow-audit
 ```
 
+If you only need browser/account/public-action control templates, use the
+self-serve OS instead:
+
+```text
+https://nicdunz.gumroad.com/l/agent-browser-operator-os
+```
+
 Use redacted files and public repo links only. Do not paste tokens, secrets,
 private transcripts, auth files, or personal data. No call required.
