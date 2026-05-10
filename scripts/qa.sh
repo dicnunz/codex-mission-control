@@ -12,6 +12,9 @@ PYTHONPATH="$ROOT" python3 scripts/smoke_test.py
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
+./cmc support > "$tmp/support.out"
+grep -q 'https://nicdunz.gumroad.com/l/smrimu' "$tmp/support.out"
+grep -q 'https://nicdunz.gumroad.com/l/agent-operator-starter-bundle' "$tmp/support.out"
 
 hub="$tmp/hub"
 proj_root="$tmp/projects"

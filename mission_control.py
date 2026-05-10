@@ -18,7 +18,9 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent
 TEMPLATE_ROOT = ROOT / "templates" / "mission-control"
-VERSION = "0.2.0"
+VERSION = "0.2.2"
+STARTER_BUNDLE_URL = "https://nicdunz.gumroad.com/l/agent-operator-starter-bundle"
+SUPPORT_RECEIPT_URL = "https://nicdunz.gumroad.com/l/smrimu"
 DEFAULT_HUB = Path(
     os.environ.get("CODEX_MISSION_CONTROL_HOME", "~/Codex Mission Control")
 ).expanduser()
@@ -675,6 +677,21 @@ def dashboard_open(hub: Path, no_open: bool = False) -> int:
     return subprocess.call(command, env=env)
 
 
+def support_text() -> str:
+    return "\n".join(
+        [
+            "Codex Mission Control support",
+            "",
+            "If Mission Control saves you setup time, the smallest support path is:",
+            SUPPORT_RECEIPT_URL,
+            "",
+            "If you want the broader operator templates, browser-agent lanes, proof ledgers,",
+            "public-action gates, and handoff material, use the starter bundle:",
+            STARTER_BUNDLE_URL,
+        ]
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="cmc", description="Codex Mission Control")
     parser.add_argument("--hub", default=str(DEFAULT_HUB), help="Mission Control hub folder")
@@ -696,6 +713,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("lanes", help="show surface lanes")
     sub.add_parser("projects", help="show discovered missions")
     sub.add_parser("instructions", help="print the Mission Control instructions")
+    sub.add_parser("support", help="show optional paid support links")
 
     adopt = sub.add_parser("adopt", help="install Mission Control AGENTS.md blocks into discovered projects")
     adopt.add_argument("--write", action="store_true", help="write AGENTS.md blocks; default is dry-run")
@@ -756,6 +774,9 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "instructions":
             print(instructions_text(hub))
+            return 0
+        if args.command == "support":
+            print(support_text())
             return 0
         if args.command == "adopt":
             print(adopt_agents(hub, args.write))
