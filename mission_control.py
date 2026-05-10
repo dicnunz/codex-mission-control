@@ -18,7 +18,7 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent
 TEMPLATE_ROOT = ROOT / "templates" / "mission-control"
-VERSION = "0.2.2"
+VERSION = "0.2.3"
 STARTER_BUNDLE_URL = "https://nicdunz.gumroad.com/l/agent-operator-starter-bundle"
 SUPPORT_RECEIPT_URL = "https://nicdunz.gumroad.com/l/smrimu"
 DEFAULT_HUB = Path(
@@ -158,6 +158,7 @@ def init_hub(hub: Path = DEFAULT_HUB) -> str:
             f"hub: {display_path(hub)}",
             f"created files: {len(created)}",
             "next: cmc discover",
+            "optional support: cmc support",
         ]
     )
 
