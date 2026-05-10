@@ -35,6 +35,8 @@ No Telegram token needed. The demo proves the core loop: discover a project, cla
 
 Watch the 44-second demo: [assets/codex-mission-control-demo.mp4](assets/codex-mission-control-demo.mp4)
 
+If Mission Control saves you time and you want the smallest paid support path, buy the $5 Codex run receipt: <https://nicdunz.gumroad.com/l/smrimu>.
+
 ## What It Does
 
 ```text
