@@ -65,5 +65,6 @@ printf "\n"
 
 printf "If this maps your workflow:\n"
 printf "Run the route checker: https://dicnunz.github.io/codex-operator-sprint/workflow-route-checker.html\n"
+printf "Buy the \$39 browser operator template kit: https://nicdunz.gumroad.com/l/agent-browser-operator-os\n"
 printf "Buy the \$149 written mini-audit: https://nicdunz.gumroad.com/l/agent-workflow-mini-audit\n"
 printf "Buy the \$750 workflow audit: https://nicdunz.gumroad.com/l/agent-workflow-audit\n"

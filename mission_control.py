@@ -18,9 +18,10 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent
 TEMPLATE_ROOT = ROOT / "templates" / "mission-control"
-VERSION = "0.2.5"
+VERSION = "0.2.6"
 STARTER_BUNDLE_URL = "https://nicdunz.gumroad.com/l/agent-operator-starter-bundle"
 SUPPORT_RECEIPT_URL = "https://nicdunz.gumroad.com/l/smrimu"
+BROWSER_OPERATOR_OS_URL = "https://nicdunz.gumroad.com/l/agent-browser-operator-os"
 DEFAULT_HUB = Path(
     os.environ.get("CODEX_MISSION_CONTROL_HOME", "~/Codex Mission Control")
 ).expanduser()
@@ -689,6 +690,12 @@ def support_text() -> str:
             "If you want the broader operator templates, browser-agent lanes, proof ledgers,",
             "public-action gates, and handoff material, use the starter bundle:",
             STARTER_BUNDLE_URL,
+            "",
+            "If you want a lower-friction browser/account/public-action control kit, use",
+            "Agent Browser Operator OS:",
+            BROWSER_OPERATOR_OS_URL,
+            "",
+            "It is not a Chrome plugin repair, guaranteed automation fix, or custom setup service.",
         ]
     )
 

@@ -34,6 +34,7 @@ updated_at = os.environ["UPDATED_AT"]
 out = Path(os.environ["OUT"])
 starter_bundle_url = "https://nicdunz.gumroad.com/l/agent-operator-starter-bundle"
 support_receipt_url = "https://nicdunz.gumroad.com/l/smrimu"
+browser_operator_os_url = "https://nicdunz.gumroad.com/l/agent-browser-operator-os"
 
 
 def find(pattern: str, text: str, fallback: str = "") -> str:
@@ -419,6 +420,7 @@ doc = f"""<!doctype html>
     </div>
     <div class="support-actions">
       <a class="primary-link" href="{esc(starter_bundle_url)}">Agent Operator Starter Bundle</a>
+      <a href="{esc(browser_operator_os_url)}">Agent Browser Operator OS</a>
       <a href="{esc(support_receipt_url)}">$5 support receipt</a>
     </div>
   </section>

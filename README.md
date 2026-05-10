@@ -39,6 +39,10 @@ If Mission Control saves you time and you want the smallest paid support path, b
 
 For broader self-serve templates around browser-agent lanes, public-action gates, proof ledgers, and handoffs, the Agent Operator Starter Bundle is here: <https://nicdunz.gumroad.com/l/agent-operator-starter-bundle>.
 
+For a lower-friction browser/account/public-action control kit, use Agent Browser Operator OS: <https://nicdunz.gumroad.com/l/agent-browser-operator-os>.
+
+It is a self-serve template kit, not a Chrome plugin repair, guaranteed automation fix, custom setup service, account access service, or call-based engagement.
+
 If you want a written async setup audit instead of self-serve templates, use the paid setup audit issue template: <https://github.com/dicnunz/codex-mission-control/issues/new?template=paid-setup-audit.yml>.
 
 - Mini audit: <https://nicdunz.gumroad.com/l/agent-workflow-mini-audit>

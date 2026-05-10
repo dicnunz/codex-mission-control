@@ -15,9 +15,12 @@ trap 'rm -rf "$tmp"' EXIT
 ./cmc support > "$tmp/support.out"
 grep -q 'https://nicdunz.gumroad.com/l/smrimu' "$tmp/support.out"
 grep -q 'https://nicdunz.gumroad.com/l/agent-operator-starter-bundle' "$tmp/support.out"
+grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' "$tmp/support.out"
 test -s .github/ISSUE_TEMPLATE/paid-setup-audit.yml
 grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-mini-audit' .github/ISSUE_TEMPLATE/paid-setup-audit.yml
 grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-audit' .github/ISSUE_TEMPLATE/paid-setup-audit.yml
+grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' README.md
+grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' .github/FUNDING.yml
 
 hub="$tmp/hub"
 proj_root="$tmp/projects"
@@ -103,6 +106,7 @@ grep -q 'Approval packet' "$dashboard_path"
 grep -q 'Copy command' "$dashboard_path"
 grep -q 'https://nicdunz.gumroad.com/l/smrimu' "$dashboard_path"
 grep -q 'https://nicdunz.gumroad.com/l/agent-operator-starter-bundle' "$dashboard_path"
+grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' "$dashboard_path"
 grep -q 'Support Mission Control' "$dashboard_path"
 
 for visual in \
@@ -121,6 +125,7 @@ done
 ./scripts/demo.sh
 ./scripts/demo.sh > "$tmp/demo.out"
 grep -q 'https://dicnunz.github.io/codex-operator-sprint/workflow-route-checker.html' "$tmp/demo.out"
+grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' "$tmp/demo.out"
 grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-mini-audit' "$tmp/demo.out"
 grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-audit' "$tmp/demo.out"
 ./scripts/fresh_clone_test.sh
