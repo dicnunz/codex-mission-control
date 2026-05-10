@@ -18,7 +18,7 @@ from typing import Iterable
 
 ROOT = Path(__file__).resolve().parent
 TEMPLATE_ROOT = ROOT / "templates" / "mission-control"
-VERSION = "0.2.3"
+VERSION = "0.2.4"
 STARTER_BUNDLE_URL = "https://nicdunz.gumroad.com/l/agent-operator-starter-bundle"
 SUPPORT_RECEIPT_URL = "https://nicdunz.gumroad.com/l/smrimu"
 DEFAULT_HUB = Path(

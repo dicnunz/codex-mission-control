@@ -32,6 +32,8 @@ cmc_projects = os.environ["CMC_PROJECTS"]
 cmc_packet = os.environ["CMC_PACKET"]
 updated_at = os.environ["UPDATED_AT"]
 out = Path(os.environ["OUT"])
+starter_bundle_url = "https://nicdunz.gumroad.com/l/agent-operator-starter-bundle"
+support_receipt_url = "https://nicdunz.gumroad.com/l/smrimu"
 
 
 def find(pattern: str, text: str, fallback: str = "") -> str:
@@ -326,6 +328,45 @@ doc = f"""<!doctype html>
     font-size: 13px;
     margin-top: 14px;
   }}
+  .support-card {{
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 18px;
+    align-items: center;
+    margin: 20px 0 2px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--surface);
+    padding: 16px;
+  }}
+  .support-card h3 {{
+    margin-bottom: 6px;
+    color: var(--text);
+    font-size: 14px;
+    text-transform: none;
+  }}
+  .support-actions {{
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }}
+  .support-actions a {{
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    color: var(--text);
+    background: var(--soft);
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    white-space: nowrap;
+  }}
+  .support-actions a.primary-link {{
+    border-color: #525252;
+    background: #eeeeec;
+    color: #111;
+  }}
   .reference {{
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -333,10 +374,11 @@ doc = f"""<!doctype html>
   }}
   @media (max-width: 820px) {{
     main {{ width: min(100vw - 28px, 980px); padding-top: 22px; }}
-    header, .primary, .reference {{ display: block; }}
+    header, .primary, .reference, .support-card {{ display: block; }}
     .state, .command {{ min-height: 0; margin-bottom: 16px; }}
     .state h2 {{ font-size: 34px; }}
     .stamp {{ margin-top: 12px; }}
+    .support-actions {{ justify-content: flex-start; margin-top: 14px; }}
   }}
 </style>
 <main class="{esc(body_class)}">
@@ -369,6 +411,17 @@ doc = f"""<!doctype html>
     <span>Relay: {esc(relay)}</span>
     <span>{'Healthy' if ready else 'Needs check'}</span>
   </div>
+
+  <section class="support-card" aria-label="Mission Control support">
+    <div>
+      <h3>Support Mission Control</h3>
+      <p>Optional paid resources for builders who use this dashboard to coordinate browser-agent lanes, approval packets, and handoffs.</p>
+    </div>
+    <div class="support-actions">
+      <a class="primary-link" href="{esc(starter_bundle_url)}">Agent Operator Starter Bundle</a>
+      <a href="{esc(support_receipt_url)}">$5 support receipt</a>
+    </div>
+  </section>
 
   <div class="content">
     <section>

@@ -98,6 +98,9 @@ grep -q 'Mission Control' "$dashboard_path"
 grep -q 'Lanes' "$dashboard_path"
 grep -q 'Approval packet' "$dashboard_path"
 grep -q 'Copy command' "$dashboard_path"
+grep -q 'https://nicdunz.gumroad.com/l/smrimu' "$dashboard_path"
+grep -q 'https://nicdunz.gumroad.com/l/agent-operator-starter-bundle' "$dashboard_path"
+grep -q 'Support Mission Control' "$dashboard_path"
 
 for visual in \
   assets/visuals/hero-control-room.png \
