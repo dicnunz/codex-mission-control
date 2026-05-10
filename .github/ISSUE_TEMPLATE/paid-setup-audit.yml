@@ -1,0 +1,63 @@
+name: "Paid setup audit"
+description: "Start a redacted, async setup audit after buying a written audit."
+title: "[paid setup audit]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this only for public-safe, redacted setup audits.
+
+        Do not paste bot tokens, `.env`, private screenshots, personal files, customer data, raw Codex transcripts, or unredacted logs.
+
+        Checkout:
+        - $149 written mini-audit: https://nicdunz.gumroad.com/l/agent-workflow-mini-audit
+        - $750 workflow audit: https://nicdunz.gumroad.com/l/agent-workflow-audit
+  - type: input
+    id: receipt
+    attributes:
+      label: "Checkout or receipt reference"
+      description: "Use a Gumroad receipt email, order reference, or the checkout path you used. Do not paste payment details."
+      placeholder: "Example: mini-audit receipt, order email timestamp, or checkout URL"
+    validations:
+      required: true
+  - type: textarea
+    id: workflow
+    attributes:
+      label: "One workflow to audit"
+      description: "Name the one Mission Control or Codex workflow you want mapped."
+      placeholder: "Example: coordinate three Codex chats around one repo without double-posting browser actions."
+    validations:
+      required: true
+  - type: textarea
+    id: current-state
+    attributes:
+      label: "Current redacted setup"
+      description: "Describe the Mac, Codex, repo, and tool state using only public-safe details."
+      placeholder: "Example: macOS version, Codex app/CLI state, repo type, Telegram relay yes/no."
+    validations:
+      required: true
+  - type: textarea
+    id: blocker
+    attributes:
+      label: "Blocker or risk"
+      description: "What breaks, stalls, creates duplicate action risk, or needs a decision gate?"
+      placeholder: "Example: browser lane gets claimed by two chats; need proof before public reply."
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: "Desired proof"
+      description: "What should be true when the audit is useful?"
+      placeholder: "Example: a route map, commands to run, stop rules, and the exact first reversible test."
+    validations:
+      required: true
+  - type: checkboxes
+    id: boundaries
+    attributes:
+      label: "Boundaries"
+      options:
+        - label: "I removed secrets, tokens, private screenshots, personal files, customer data, and unredacted logs."
+          required: true
+        - label: "I understand this is async written audit work, not a call, live demo, managed service, legal advice, medical advice, or financial advice."
+          required: true

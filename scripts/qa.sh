@@ -15,6 +15,9 @@ trap 'rm -rf "$tmp"' EXIT
 ./cmc support > "$tmp/support.out"
 grep -q 'https://nicdunz.gumroad.com/l/smrimu' "$tmp/support.out"
 grep -q 'https://nicdunz.gumroad.com/l/agent-operator-starter-bundle' "$tmp/support.out"
+test -s .github/ISSUE_TEMPLATE/paid-setup-audit.yml
+grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-mini-audit' .github/ISSUE_TEMPLATE/paid-setup-audit.yml
+grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-audit' .github/ISSUE_TEMPLATE/paid-setup-audit.yml
 
 hub="$tmp/hub"
 proj_root="$tmp/projects"
@@ -116,6 +119,10 @@ for visual in \
 done
 
 ./scripts/demo.sh
+./scripts/demo.sh > "$tmp/demo.out"
+grep -q 'https://dicnunz.github.io/codex-operator-sprint/workflow-route-checker.html' "$tmp/demo.out"
+grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-mini-audit' "$tmp/demo.out"
+grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-audit' "$tmp/demo.out"
 ./scripts/fresh_clone_test.sh
 
 if command -v swiftc >/dev/null 2>&1; then

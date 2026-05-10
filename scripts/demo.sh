@@ -61,3 +61,9 @@ printf "Codex receives the private image path with --image and replies back to T
 
 printf "Try the real bot after install:\n"
 printf "./scripts/install.sh\n"
+printf "\n"
+
+printf "If this maps your workflow:\n"
+printf "Run the route checker: https://dicnunz.github.io/codex-operator-sprint/workflow-route-checker.html\n"
+printf "Buy the \$149 written mini-audit: https://nicdunz.gumroad.com/l/agent-workflow-mini-audit\n"
+printf "Buy the \$750 workflow audit: https://nicdunz.gumroad.com/l/agent-workflow-audit\n"
