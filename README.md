@@ -37,6 +37,8 @@ Watch the 44-second demo: [assets/codex-mission-control-demo.mp4](assets/codex-m
 
 If Mission Control saves you time and you want the smallest paid support path, buy the $5 Codex run receipt: <https://nicdunz.gumroad.com/l/smrimu>.
 
+For broader self-serve templates around browser-agent lanes, public-action gates, proof ledgers, and handoffs, the Agent Operator Starter Bundle is here: <https://nicdunz.gumroad.com/l/agent-operator-starter-bundle>.
+
 ## What It Does
 
 ```text
