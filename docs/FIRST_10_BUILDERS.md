@@ -54,3 +54,27 @@ Feedback form:
 ```text
 https://github.com/dicnunz/codex-mission-control/issues/new?template=install-feedback.yml
 ```
+
+## Paid Async Audit
+
+If you want the workflow mapped instead of only reporting an install blocker,
+use the paid setup audit template:
+
+```text
+https://github.com/dicnunz/codex-mission-control/issues/new?template=paid-setup-audit.yml
+```
+
+Mini audit:
+
+```text
+https://nicdunz.gumroad.com/l/agent-workflow-mini-audit
+```
+
+Full workflow audit:
+
+```text
+https://nicdunz.gumroad.com/l/agent-workflow-audit
+```
+
+Use redacted files and public repo links only. Do not paste tokens, secrets,
+private transcripts, auth files, or personal data. No call required.
