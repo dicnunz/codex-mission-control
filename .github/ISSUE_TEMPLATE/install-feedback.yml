@@ -7,7 +7,7 @@ body:
       value: |
         Thanks for trying Codex Mission Control.
 
-        Do not paste bot tokens, `.env`, private screenshots, personal files, raw Codex transcripts, or unredacted logs.
+        Do not paste bot tokens, `.env`, private screenshots, personal files, raw Codex transcripts, auth files, or unredacted logs.
   - type: input
     id: mac
     attributes:
@@ -19,9 +19,16 @@ body:
     id: codex
     attributes:
       label: "Codex app or CLI state"
-      description: "Was the Codex Mac app installed and signed in before install?"
+      description: "Was the Codex Mac app installed and signed in before install? Did `command -v codex` return a path?"
     validations:
       required: true
+  - type: input
+    id: python
+    attributes:
+      label: "Python 3 state"
+      description: "Output of `python3 --version`, or the first Python-related error you saw."
+    validations:
+      required: false
   - type: checkboxes
     id: commands
     attributes:
@@ -30,6 +37,11 @@ body:
         - label: "./scripts/install.sh"
         - label: "cmc status"
         - label: "cmc doctor"
+        - label: "cmc lanes"
+        - label: "./cmc status"
+        - label: "./cmc doctor"
+        - label: "./cmc lanes"
+        - label: "cmc dashboard --no-open"
         - label: "/mission status"
         - label: "/mission health"
         - label: "/alive"
