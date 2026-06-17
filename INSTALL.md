@@ -29,6 +29,65 @@ The installer:
 
 Mission Control does not move project folders. The hub stores symlinks, markdown ops files, lane locks, and outboxes.
 
+## First-run Troubleshooting
+
+### `python3 is required`
+
+Confirm Python 3 is available before running the installer:
+
+```bash
+python3 --version
+```
+
+If that command fails, install Python 3 first and rerun `./scripts/install.sh`.
+
+### `Codex CLI not found`
+
+Open the Codex Mac app first and confirm it is installed and signed in. The installer checks for the Codex app CLI under `/Applications/Codex.app` and then falls back to a `codex` command on your `PATH`.
+
+You can verify the PATH-based fallback with:
+
+```bash
+command -v codex
+```
+
+### `cmc: command not found`
+
+The installer links `cmc` into `~/.local/bin` when possible. If that folder is not on your `PATH`, either run commands from the repo:
+
+```bash
+./cmc status
+./cmc doctor
+```
+
+or add the local bin folder to your shell profile:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+### Dashboard does not open
+
+Generate the dashboard path without opening the browser:
+
+```bash
+cmc dashboard --no-open
+```
+
+Then open the printed local HTML path manually.
+
+### Unsure what to report
+
+Run the smallest safe check set and paste only short, redacted output into the install feedback issue template:
+
+```bash
+cmc status
+cmc doctor
+cmc lanes
+```
+
+Do not paste bot tokens, `.env`, private screenshots, personal files, raw Codex transcripts, auth files, or unredacted logs.
+
 ## Project Instructions
 
 Preview the exact project instruction blocks:

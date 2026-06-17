@@ -6,6 +6,18 @@ Goal: find the first install blocker, not collect compliments.
 
 Try Codex Mission Control on a Mac with Codex installed. Report the first thing that is confusing, broken, slow, or surprising.
 
+## Preflight
+
+Before running the installer, capture the smallest useful environment facts:
+
+```bash
+sw_vers
+python3 --version
+command -v codex || true
+```
+
+If `command -v codex` is empty, that is useful feedback. The installer also checks the Codex Mac app path directly.
+
 ## Install
 
 ```bash
@@ -21,6 +33,15 @@ cmc status
 cmc lanes
 cmc packet
 cmc dashboard
+```
+
+If `cmc` is not on your `PATH`, run the same checks from the repository:
+
+```bash
+./cmc status
+./cmc lanes
+./cmc packet
+./cmc dashboard
 ```
 
 Optional Telegram path:
@@ -45,6 +66,8 @@ Then DM the bot:
 - Codex app or CLI state before install
 - exact first blocker
 - expected result
+- first command that failed or confused you
+- whether `cmc` worked from `PATH` or only as `./cmc`
 - short redacted output if useful
 
 Do not paste bot tokens, `.env`, private screenshots, personal files, raw Codex transcripts, auth files, or unredacted logs.
