@@ -4,6 +4,8 @@
 
 A Python utility for coordinating local Codex sessions with project discovery, cooperative filesystem locks and an optional Telegram bridge.
 
+[Explore the example dashboard](https://dicnunz.github.io/demos/mission-control/) — an interactive preview with synthetic missions and owners, with no connected workspace.
+
 Codex Mission Control is for Mac users running several Codex chats against real projects, browsers, inboxes, repos, and account surfaces.
 
 It finds your projects, turns them into missions, locks shared surfaces, keeps approval gates, and lets you text the whole setup from your phone.
