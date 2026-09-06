@@ -57,6 +57,11 @@ class DashboardTests(unittest.TestCase):
         return Page(path.read_text())
 
     def test_commands_target_selected_hub_and_preserve_full_owner(self):
+        # macOS temporary paths traverse /var -> /private/var. Exercise the
+        # same alias on every platform so command targeting checks identity.
+        alias = Path(self.temp.name) / "hub-link"
+        alias.symlink_to(self.hub, target_is_directory=True)
+        self.hub = alias
         owner = 'Design chat; "review"'
         mc.claim_lane(self.hub, "BROWSER", owner, "review <script>draft</script>")
         page = self.render()
@@ -65,7 +70,7 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(release[-3:], ["release", "BROWSER", owner])
         for command in commands:
             if Path(command[0]).name == "cmc":
-                self.assertEqual(command[1:3], ["--hub", str(self.hub)])
+                self.assertEqual(command[1:3], ["--hub", str(self.hub.resolve())])
         self.assertIn(owner, "".join(page.text))
         self.assertEqual(page.tags.count("script"), 1, "hub text must not become executable markup")
 
