@@ -9,7 +9,7 @@ They are intentionally text-light. Exact copy, commands, and product claims live
 | File | Role |
 | --- | --- |
 | `hero-control-room.png` | Product hero |
-| `origin-lanes.png` | Origin story / launch thread |
+| `origin-lanes.png` | Coordination overview |
 | `project-discovery.png` | Project discovery |
 | `lane-lock.png` | Shared-surface locking |
 | `approval-packet.png` | Approval gates |

@@ -180,7 +180,7 @@ Fresh clone check:
 ./scripts/fresh_clone_test.sh
 ```
 
-First-builder feedback script: [docs/FIRST_10_BUILDERS.md](docs/FIRST_10_BUILDERS.md).
+Report an install problem with the [install feedback guide](docs/INSTALL_FEEDBACK.md).
 
 ## What It Is Not
 
