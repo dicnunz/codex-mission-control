@@ -51,7 +51,7 @@ Existing `AGENTS.md` files are backed up as `AGENTS.md.cmc-backup-*`.
 cmc dashboard
 ```
 
-The dashboard is a private local HTML file under `~/Library/Application Support/CodexRelay/state/`.
+The dashboard is a private local HTML snapshot at `<hub>/_ops/dashboard.html` (normally `~/Codex Mission Control/_ops/dashboard.html`). Each hub has its own page. Run `cmc dashboard` again to refresh its data; `--no-open` only generates the file. The page works without Relay and contains no external assets or network requests.
 
 ## Telegram Relay
 

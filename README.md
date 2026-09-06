@@ -63,7 +63,9 @@ cmc claim BROWSER OTHER "also using the browser"
 # held: BROWSER
 ```
 
-That is the product: projects become missions, shared surfaces get lanes, and risky actions become approval packets before anything leaves your Mac.
+Claims and releases are serialized per lane with a standard-library filesystem guard on macOS and Linux. Reclaiming an expired lane uses its current owner's timeout, never the incoming claimant's timeout. The default lease is 1,800 seconds; `--ttl 0` holds a lane until its owner releases it.
+
+Use a unique owner name for each session. Check that the previous session has stopped before reclaiming an expired lease: expiry does not stop running work. These are cooperative local locks, not a permission system. All participating sessions must use the updated CLI; network filesystems and mixed CLI versions are not supported coordination targets.
 
 ## Who It Is For
 
@@ -135,6 +137,8 @@ Install the phone remote during setup or later:
 
 Discovery is deliberately boring: `cmc discover` scans the standard Mac roots; `cmc discover /path/to/project` scans only that path; `cmc discover --include-defaults /extra/root` scans both. It creates symlinks in the hub and per-mission outboxes. Your real folders stay where they are.
 
+`cmc dashboard` writes a self-contained snapshot at `<hub>/_ops/dashboard.html` and opens it locally. Use `cmc --hub /path/to/hub dashboard --no-open` to generate it without opening a browser. The page shows full lane owners, lease expiry, stale or unreadable claims, project paths, and outbox freshness. Filter lanes, search missions, or compose a shell-quoted claim command. Every copied command targets the selected hub. Run `cmc dashboard` again to refresh the snapshot; browser reload alone does not read new hub state.
+
 `cmc adopt` previews the `AGENTS.md` blocks Mission Control would add to discovered projects. `cmc adopt --write` applies them with backups when an `AGENTS.md` already exists. The installer defaults to preview-only unless `CMC_ADOPT_AGENTS=yes` is set.
 
 ## Relay Commands
@@ -190,6 +194,7 @@ First-builder feedback script: [docs/FIRST_10_BUILDERS.md](docs/FIRST_10_BUILDER
 ```bash
 python3 -m py_compile mission_control.py codex_relay.py scripts/configure.py
 PYTHONPATH=. python3 scripts/smoke_test.py
+python3 -m unittest discover -s scripts -p 'test_*.py'
 ./cmc doctor
 ./scripts/demo.sh
 ./scripts/fresh_clone_test.sh
@@ -206,6 +211,8 @@ Runtime files:
 ```
 
 The Relay runtime path keeps the original `CodexRelay` name for upgrade compatibility.
+
+The core CLI, local dashboard, and lane regression tests also run on Linux. The installer, LaunchAgent, menu bar, and `scripts/doctor.sh` are macOS-specific; QA reports those platform skips on Linux.
 
 Update later with:
 

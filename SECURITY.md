@@ -57,6 +57,10 @@ GLOBAL_WRITE
 
 Lane locks prevent accidental collisions. They are not a permission system. The user and the local Codex sandbox are still the real boundary.
 
+Lane metadata reads, claims, stale replacement, and releases share a per-lane `flock` guard on macOS/Linux. Guard files stay in place so competing processes lock the same file; the OS releases the guard if a process exits. Keep all participating CLI versions current and use a local filesystem. Older clients and network filesystems do not provide the same coordination guarantees.
+
+Expiry uses the stored owner's lease (`--ttl`, default 1,800 seconds); zero disables expiry. A lease does not stop or monitor an agent. Use a unique owner name per session and verify the old session has stopped before reclaiming. Missing or malformed ownership metadata stays held for inspection instead of being treated as clear.
+
 ## Reporting Issues
 
 Include:

@@ -15,6 +15,8 @@ jobs:
         run: PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile $(git ls-files '*.py')
       - name: Smoke tests
         run: PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" python3 scripts/smoke_test.py
+      - name: Lane concurrency and generated dashboard
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Mission Control CLI
         run: |
           HUB="$RUNNER_TEMP/cmc-hub"
