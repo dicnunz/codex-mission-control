@@ -2,15 +2,13 @@
 
 [![ci](https://github.com/dicnunz/codex-mission-control/actions/workflows/ci.yml/badge.svg)](https://github.com/dicnunz/codex-mission-control/actions/workflows/ci.yml)
 
-**Stop running Codex like loose chats. Give it local traffic control.**
+A Python utility for coordinating local Codex sessions with project discovery, cooperative filesystem locks and an optional Telegram bridge.
 
 Codex Mission Control is for Mac users running several Codex chats against real projects, browsers, inboxes, repos, and account surfaces.
 
 It finds your projects, turns them into missions, locks shared surfaces, keeps approval gates, and lets you text the whole setup from your phone.
 
 Unofficial project. Not affiliated with OpenAI or Telegram.
-
-![Codex Mission Control launch card](assets/social-card.png)
 
 ## The Problem
 
@@ -35,21 +33,6 @@ No Telegram token needed. The demo proves the core loop: discover a project, cla
 
 Watch the 44-second demo: [assets/codex-mission-control-demo.mp4](assets/codex-mission-control-demo.mp4)
 
-If Mission Control saves you time and you want the smallest paid support path, buy the $5 Codex run receipt: <https://nicdunz.gumroad.com/l/smrimu>.
-
-For broader self-serve templates around browser-agent lanes, public-action gates, proof ledgers, and handoffs, the Agent Operator Starter Bundle is here: <https://nicdunz.gumroad.com/l/agent-operator-starter-bundle>.
-
-For a lower-friction browser/account/public-action control kit, use Agent Browser Operator OS: <https://nicdunz.gumroad.com/l/agent-browser-operator-os>.
-
-It is a self-serve template kit, not a Chrome plugin repair, guaranteed automation fix, custom setup service, account access service, or call-based engagement.
-
-If you want a written async setup audit instead of self-serve templates, use the paid setup audit issue template: <https://github.com/dicnunz/codex-mission-control/issues/new?template=paid-setup-audit.yml>.
-
-- Mini audit: <https://nicdunz.gumroad.com/l/agent-workflow-mini-audit>
-- Full workflow audit: <https://nicdunz.gumroad.com/l/agent-workflow-audit>
-
-Redacted files and public repo links only. Do not paste tokens, secrets, private transcripts, auth files, or personal data. No call required.
-
 ## What It Does
 
 ```text
@@ -68,7 +51,7 @@ It creates:
 
 It does not move your projects, run a hosted dashboard, or create another account.
 
-## Why It Works
+## Coordination model
 
 Multiple Codex chats can all be useful and still wreck each other if they touch the same browser, inbox, GitHub repo, desktop, social account, or payment surface.
 
