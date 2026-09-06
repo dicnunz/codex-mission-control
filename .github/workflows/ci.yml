@@ -15,6 +15,8 @@ jobs:
         run: PYTHONDONTWRITEBYTECODE=1 python3 -m py_compile $(git ls-files '*.py')
       - name: Smoke tests
         run: PYTHONDONTWRITEBYTECODE=1 PYTHONPATH="$PWD" python3 scripts/smoke_test.py
+      - name: Lane concurrency and generated dashboard
+        run: PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s scripts -p 'test_*.py'
       - name: Mission Control CLI
         run: |
           HUB="$RUNNER_TEMP/cmc-hub"
@@ -29,16 +31,32 @@ jobs:
       - name: Native menu bar build
         run: ./scripts/build_menu_bar.sh
       - name: Generated demo assets
+        id: generated-demo
         run: |
           brew install ffmpeg
           cp assets/codex-mission-control-demo.mp4 "$RUNNER_TEMP/codex-mission-control-demo-before.mp4"
+          cp assets/codex-mission-control-demo-poster.png "$RUNNER_TEMP/poster-before.png"
           ./scripts/record_demo.sh
+          for poster in "$RUNNER_TEMP/poster-before.png" assets/codex-mission-control-demo-poster.png; do
+            printf 'Decoded pixel hash: %s\n' "$poster"
+            ffmpeg -v error -i "$poster" -pix_fmt rgba -f hash -hash sha256 -
+          done
           git diff --exit-code -- assets/social-card.svg assets/demo-transcript.svg assets/codex-mission-control-demo-poster.png
           test "$(sips -g pixelWidth -g pixelHeight assets/social-card.png | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w "x" h}')" = "1280x640"
           test "$(ffprobe -v error -show_entries stream=width,height -of csv=p=0:s=x assets/codex-mission-control-demo.mp4 | head -n1)" = "1280x720"
           test "$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 assets/codex-mission-control-demo.mp4)" = "44.000000"
           ffmpeg -i "$RUNNER_TEMP/codex-mission-control-demo-before.mp4" -i assets/codex-mission-control-demo.mp4 -lavfi "[0:v][1:v]ssim" -f null - 2> "$RUNNER_TEMP/demo-ssim.log"
           python3 -c 'import os, pathlib, re; text = pathlib.Path(os.environ["RUNNER_TEMP"], "demo-ssim.log").read_text(); values = [float(match) for match in re.findall(r"All:([0-9.]+)", text)]; assert values and min(values) >= 0.99, text'
+      - name: Preserve failed demo renders for inspection
+        if: failure() && steps.generated-demo.conclusion == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: demo-render-diagnostics
+          retention-days: 7
+          path: |
+            ${{ runner.temp }}/poster-before.png
+            assets/codex-mission-control-demo-poster.png
+            assets/codex-mission-control-demo.mp4
       - name: Fresh clone path
         run: PYTHONDONTWRITEBYTECODE=1 ./scripts/fresh_clone_test.sh
       - name: Deep QA

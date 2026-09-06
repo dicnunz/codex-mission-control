@@ -21,12 +21,12 @@ printf "Mac > cmc status\n"
 printf "\n"
 
 printf "Mac > cmc claim BROWSER OTHER \"second chat\"\n"
-if "$ROOT/cmc" --hub "$demo_hub" claim BROWSER OTHER "second chat" >/tmp/cmc-demo-double-claim.out 2>&1; then
+if "$ROOT/cmc" --hub "$demo_hub" claim BROWSER OTHER "second chat" >"$demo_hub/double-claim.out" 2>&1; then
   printf "expected second claim to fail\n" >&2
   exit 1
 fi
-cat /tmp/cmc-demo-double-claim.out
-rm -f /tmp/cmc-demo-double-claim.out
+cat "$demo_hub/double-claim.out"
+rm -f "$demo_hub/double-claim.out"
 printf "\n"
 
 printf "Mac > cmc packet\n"
@@ -63,8 +63,4 @@ printf "Try the real bot after install:\n"
 printf "./scripts/install.sh\n"
 printf "\n"
 
-printf "If this maps your workflow:\n"
-printf "Run the route checker: https://dicnunz.github.io/codex-operator-sprint/workflow-route-checker.html\n"
-printf "Buy the \$39 browser operator template kit: https://nicdunz.gumroad.com/l/agent-browser-operator-os\n"
-printf "Buy the \$149 written mini-audit: https://nicdunz.gumroad.com/l/agent-workflow-mini-audit\n"
-printf "Buy the \$750 workflow audit: https://nicdunz.gumroad.com/l/agent-workflow-audit\n"
+printf "Continue locally with: cmc discover, cmc lanes, and cmc dashboard.\n"

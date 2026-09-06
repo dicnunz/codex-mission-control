@@ -25,9 +25,12 @@ else
 fi
 
 cd "$TMP/codex-mission-control"
+export CODEX_RELAY_RUNTIME_DIR="$TMP/relay"
+export CODEX_RELAY_LABEL="com.codexrelay.fresh-isolated"
 
-python3 -m py_compile mission_control.py codex_relay.py scripts/configure.py scripts/smoke_test.py
+python3 -m py_compile mission_control.py dashboard.py codex_relay.py scripts/configure.py scripts/smoke_test.py
 PYTHONPATH="$PWD" python3 scripts/smoke_test.py
+python3 -m unittest discover -s scripts -p 'test_*.py'
 ./cmc --hub "$TMP/hub" init >/dev/null
 ./cmc --hub "$TMP/hub" discover "$PWD" >/dev/null
 ./cmc --hub "$TMP/hub" status >/dev/null
@@ -44,6 +47,10 @@ fi
 ./cmc --hub "$TMP/hub" packet --mission TEST --action inspect --target repo --object readme --proof proof.txt --risk none --why demo --stop done >/dev/null
 CODEX_MISSION_CONTROL_HOME="$TMP/hub" ./scripts/status_ui.sh --no-open >/dev/null
 ./scripts/demo.sh
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  printf "ok: fresh clone core checks; macOS installer and native menu skipped on %s\n" "$(uname -s)"
+  exit 0
+fi
 if [[ "$copied_worktree" == "0" ]]; then
   HOME="$TMP/home-update" \
   CODEX_MISSION_CONTROL_HOME="$TMP/home-update/Codex Mission Control" \

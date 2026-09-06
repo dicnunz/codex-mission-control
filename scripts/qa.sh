@@ -6,25 +6,15 @@ cd "$ROOT"
 
 printf "Codex Mission Control QA\n"
 
-zsh -n scripts/*.sh
-python3 -m py_compile mission_control.py codex_relay.py scripts/configure.py scripts/smoke_test.py
-PYTHONPATH="$ROOT" python3 scripts/smoke_test.py
-
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
-./cmc support > "$tmp/support.out"
-grep -q 'https://nicdunz.gumroad.com/l/smrimu' "$tmp/support.out"
-grep -q 'https://nicdunz.gumroad.com/l/agent-operator-starter-bundle' "$tmp/support.out"
-grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' "$tmp/support.out"
-test -s .github/ISSUE_TEMPLATE/paid-setup-audit.yml
-grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-mini-audit' .github/ISSUE_TEMPLATE/paid-setup-audit.yml
-grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-audit' .github/ISSUE_TEMPLATE/paid-setup-audit.yml
-grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' README.md
-grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' docs/FIRST_10_BUILDERS.md
-grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' .github/FUNDING.yml
-grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' scripts/install.sh
-grep -q 'optional self-serve browser/operator kit' scripts/install.sh
-grep -q './cmc support' scripts/update.sh
+export CODEX_RELAY_RUNTIME_DIR="$tmp/relay"
+export CODEX_RELAY_LABEL="com.codexrelay.qa-isolated"
+
+zsh -n scripts/*.sh
+python3 -m py_compile mission_control.py dashboard.py codex_relay.py scripts/configure.py scripts/smoke_test.py scripts/test_lanes.py scripts/test_dashboard.py
+PYTHONPATH="$ROOT" python3 scripts/smoke_test.py
+python3 -m unittest discover -s scripts -p 'test_*.py'
 
 hub="$tmp/hub"
 proj_root="$tmp/projects"
@@ -105,13 +95,9 @@ dashboard_path="$(cat "$tmp/dashboard.out")"
 test -s "$dashboard_path"
 CODEX_MISSION_CONTROL_HOME="$hub" ./cmc dashboard --no-open >/dev/null
 grep -q 'Mission Control' "$dashboard_path"
-grep -q 'Lanes' "$dashboard_path"
+grep -q 'Surface lanes' "$dashboard_path"
 grep -q 'Approval packet' "$dashboard_path"
 grep -q 'Copy command' "$dashboard_path"
-grep -q 'https://nicdunz.gumroad.com/l/smrimu' "$dashboard_path"
-grep -q 'https://nicdunz.gumroad.com/l/agent-operator-starter-bundle' "$dashboard_path"
-grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' "$dashboard_path"
-grep -q 'Support Mission Control' "$dashboard_path"
 
 for visual in \
   assets/visuals/hero-control-room.png \
@@ -127,19 +113,16 @@ for visual in \
 done
 
 ./scripts/demo.sh
-./scripts/demo.sh > "$tmp/demo.out"
-grep -q 'https://dicnunz.github.io/codex-operator-sprint/workflow-route-checker.html' "$tmp/demo.out"
-grep -q 'https://nicdunz.gumroad.com/l/agent-browser-operator-os' "$tmp/demo.out"
-grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-mini-audit' "$tmp/demo.out"
-grep -q 'https://nicdunz.gumroad.com/l/agent-workflow-audit' "$tmp/demo.out"
 ./scripts/fresh_clone_test.sh
 
-if command -v swiftc >/dev/null 2>&1; then
+if [[ "$(uname -s)" == "Darwin" ]] && command -v swiftc >/dev/null 2>&1; then
   ./scripts/build_menu_bar.sh >/dev/null
 fi
 
 if command -v ffprobe >/dev/null 2>&1; then
-  test "$(sips -g pixelWidth -g pixelHeight assets/social-card.png | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w "x" h}')" = "1280x640"
+  if command -v sips >/dev/null 2>&1; then
+    test "$(sips -g pixelWidth -g pixelHeight assets/social-card.png | awk '/pixelWidth/ {w=$2} /pixelHeight/ {h=$2} END {print w "x" h}')" = "1280x640"
+  fi
   test "$(ffprobe -v error -show_entries stream=width,height -of csv=p=0:s=x assets/codex-mission-control-demo.mp4 | head -n1)" = "1280x720"
   test "$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 assets/codex-mission-control-demo.mp4)" = "44.000000"
 fi

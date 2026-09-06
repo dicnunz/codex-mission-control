@@ -25,5 +25,4 @@ fi
 
 printf "\nOptional Mac control surface:\n./scripts/menu_bar.sh\n"
 printf "Optional local status page:\n./scripts/status_ui.sh\n"
-printf "Optional browser/operator kit:\n./cmc support\n"
 printf "\nUpdated and running.\n"

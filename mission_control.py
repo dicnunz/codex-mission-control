@@ -4,7 +4,10 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
+import fcntl
 import json
+import math
 import os
 import re
 import shutil
@@ -13,15 +16,12 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Iterator
 
 
 ROOT = Path(__file__).resolve().parent
 TEMPLATE_ROOT = ROOT / "templates" / "mission-control"
 VERSION = "0.2.6"
-STARTER_BUNDLE_URL = "https://nicdunz.gumroad.com/l/agent-operator-starter-bundle"
-SUPPORT_RECEIPT_URL = "https://nicdunz.gumroad.com/l/smrimu"
-BROWSER_OPERATOR_OS_URL = "https://nicdunz.gumroad.com/l/agent-browser-operator-os"
 DEFAULT_HUB = Path(
     os.environ.get("CODEX_MISSION_CONTROL_HOME", "~/Codex Mission Control")
 ).expanduser()
@@ -159,7 +159,6 @@ def init_hub(hub: Path = DEFAULT_HUB) -> str:
             f"hub: {display_path(hub)}",
             f"created files: {len(created)}",
             "next: cmc discover",
-            "optional support: cmc support",
         ]
     )
 
@@ -429,16 +428,32 @@ def read_lock_meta(path: Path) -> dict[str, object]:
     return data if isinstance(data, dict) else {}
 
 
-def lock_is_stale(path: Path, ttl: int) -> bool:
-    meta = read_lock_meta(path)
-    created = float(meta.get("created_epoch", 0) or 0)
-    return ttl > 0 and created > 0 and time.time() - created > ttl
-
-
 def lock_meta_is_stale(meta: dict[str, object]) -> bool:
-    ttl = int(float(meta.get("ttl_seconds", 0) or 0))
-    created = float(meta.get("created_epoch", 0) or 0)
-    return ttl > 0 and created > 0 and time.time() - created > ttl
+    try:
+        ttl = float(meta.get("ttl_seconds", 0) or 0)
+        created = float(meta.get("created_epoch", 0) or 0)
+    except (TypeError, ValueError, OverflowError):
+        return False
+    return (math.isfinite(ttl) and math.isfinite(created)
+            and ttl > 0 and created > 0 and time.time() - created > ttl)
+
+
+@contextmanager
+def lane_transaction(hub: Path, lane: str) -> Iterator[Path]:
+    """Serialize cooperating local processes on macOS/Linux, including readers.
+
+    Keep the guard file permanently: unlinking it could let waiters lock an old
+    inode while a new caller locks its replacement. The OS releases flock on
+    process exit. This is coordination, not authorization or a security boundary.
+    """
+    root = lock_root(hub)
+    root.mkdir(parents=True, exist_ok=True)
+    with (root / f".{lane}.guard").open("a") as guard:
+        fcntl.flock(guard.fileno(), fcntl.LOCK_EX)
+        try:
+            yield root / lane
+        finally:
+            fcntl.flock(guard.fileno(), fcntl.LOCK_UN)
 
 
 def valid_lane(lane: str) -> str:
@@ -449,52 +464,61 @@ def valid_lane(lane: str) -> str:
 
 
 def claim_lane(hub: Path, lane: str, owner: str, reason: str, ttl: int = 1800) -> tuple[int, str]:
-    init_hub(hub)
     lane = valid_lane(lane)
-    root = lock_root(hub)
-    root.mkdir(parents=True, exist_ok=True)
-    path = root / lane
-    if path.exists() and lock_is_stale(path, ttl):
-        shutil.rmtree(path)
-    try:
+    if not owner.strip():
+        raise ValueError("owner must not be empty")
+    if ttl < 0:
+        raise ValueError("ttl must be zero (no expiry) or a positive number of seconds")
+    hub = hub.expanduser()
+    init_hub(hub)
+    with lane_transaction(hub, lane) as path:
+        if path.exists():
+            current = read_lock_meta(path)
+            if not lock_meta_is_stale(current):
+                return 1, "held: " + lane + "\n" + json.dumps(current, indent=2, sort_keys=True)
+            shutil.rmtree(path)
         path.mkdir()
-    except FileExistsError:
-        return 1, "held: " + lane + "\n" + json.dumps(read_lock_meta(path), indent=2, sort_keys=True)
-    meta = {
-        "lane": lane,
-        "owner": owner,
-        "reason": reason,
-        "created_at": now_iso(),
-        "created_epoch": time.time(),
-        "pid": os.getpid(),
-        "ttl_seconds": ttl,
-    }
-    write_json(path / "lock.json", meta)
+        meta = {
+            "lane": lane,
+            "owner": owner,
+            "reason": reason,
+            "created_at": now_iso(),
+            "created_epoch": time.time(),
+            "pid": os.getpid(),
+            "ttl_seconds": ttl,
+        }
+        pending = path / "lock.json.tmp"
+        write_json(pending, meta)
+        pending.replace(path / "lock.json")
     return 0, f"acquired: {lane} by {owner}"
 
 
 def release_lane(hub: Path, lane: str, owner: str) -> tuple[int, str]:
     lane = valid_lane(lane)
-    path = lock_root(hub) / lane
-    if not path.exists():
-        return 0, f"not held: {lane}"
-    meta = read_lock_meta(path)
-    current_owner = str(meta.get("owner", ""))
-    if current_owner and current_owner != owner:
-        return 1, f"not owner: {lane} held by {current_owner}"
-    shutil.rmtree(path)
+    with lane_transaction(hub.expanduser(), lane) as path:
+        if not path.exists():
+            return 0, f"not held: {lane}"
+        meta = read_lock_meta(path)
+        current_owner = str(meta.get("owner") or "")
+        if not current_owner.strip():
+            return 1, f"cannot verify owner: {lane}; inspect {path / 'lock.json'}"
+        if current_owner != owner:
+            return 1, f"not owner: {lane} held by {current_owner}"
+        shutil.rmtree(path)
     return 0, f"released: {lane}"
 
 
 def lock_status(hub: Path) -> list[tuple[str, dict[str, object]]]:
+    hub = hub.expanduser()
     root = lock_root(hub)
     if not root.exists():
         return []
-    return [
-        (path.name, read_lock_meta(path))
-        for path in sorted(root.iterdir())
-        if path.is_dir()
-    ]
+    locks = []
+    for lane in DEFAULT_LANES:
+        with lane_transaction(hub, lane) as path:
+            if path.exists():
+                locks.append((lane, read_lock_meta(path)))
+    return locks
 
 
 def relay_state() -> str:
@@ -568,9 +592,9 @@ def lanes_text(hub: Path = DEFAULT_HUB) -> str:
     lines = ["Surface lanes:"]
     for lane in DEFAULT_LANES:
         meta = locks.get(lane)
-        if meta:
+        if meta is not None:
             suffix = " [stale]" if lock_meta_is_stale(meta) else ""
-            lines.append(f"- {lane}: held by {meta.get('owner')} ({meta.get('reason')}){suffix}")
+            lines.append(f"- {lane}: held by {meta.get('owner') or 'unknown owner'} ({meta.get('reason') or 'metadata unavailable'}){suffix}")
         else:
             lines.append(f"- {lane}: clear")
     return "\n".join(lines)
@@ -670,34 +694,17 @@ def relay_install() -> int:
 
 
 def dashboard_open(hub: Path, no_open: bool = False) -> int:
+    from dashboard import write_dashboard
+
     init_hub(hub)
-    env = os.environ.copy()
-    env["CODEX_MISSION_CONTROL_HOME"] = str(hub.expanduser())
-    command = [str(ROOT / "scripts" / "status_ui.sh")]
-    if no_open:
-        command.append("--no-open")
-    return subprocess.call(command, env=env)
-
-
-def support_text() -> str:
-    return "\n".join(
-        [
-            "Codex Mission Control support",
-            "",
-            "If Mission Control saves you setup time, the smallest support path is:",
-            SUPPORT_RECEIPT_URL,
-            "",
-            "If you want the broader operator templates, browser-agent lanes, proof ledgers,",
-            "public-action gates, and handoff material, use the starter bundle:",
-            STARTER_BUNDLE_URL,
-            "",
-            "If you want a lower-friction browser/account/public-action control kit, use",
-            "Agent Browser Operator OS:",
-            BROWSER_OPERATOR_OS_URL,
-            "",
-            "It is not a Chrome plugin repair, guaranteed automation fix, or custom setup service.",
-        ]
-    )
+    output = write_dashboard(hub)
+    print(output)
+    if not no_open:
+        if sys.platform == "darwin":
+            return subprocess.call(["open", str(output)])
+        import webbrowser
+        webbrowser.open(output.as_uri())
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -721,7 +728,6 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("lanes", help="show surface lanes")
     sub.add_parser("projects", help="show discovered missions")
     sub.add_parser("instructions", help="print the Mission Control instructions")
-    sub.add_parser("support", help="show optional paid support links")
 
     adopt = sub.add_parser("adopt", help="install Mission Control AGENTS.md blocks into discovered projects")
     adopt.add_argument("--write", action="store_true", help="write AGENTS.md blocks; default is dry-run")
@@ -730,7 +736,7 @@ def build_parser() -> argparse.ArgumentParser:
     claim.add_argument("lane")
     claim.add_argument("owner")
     claim.add_argument("reason")
-    claim.add_argument("--ttl", type=int, default=1800)
+    claim.add_argument("--ttl", type=int, default=1800, help="lease seconds (default: 1800); 0 disables expiry")
 
     release = sub.add_parser("release", help="release a shared surface lane")
     release.add_argument("lane")
@@ -782,9 +788,6 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "instructions":
             print(instructions_text(hub))
-            return 0
-        if args.command == "support":
-            print(support_text())
             return 0
         if args.command == "adopt":
             print(adopt_agents(hub, args.write))
