@@ -1,6 +1,6 @@
-# Dispatch
+# Codex Sessions
 
-[![ci](https://github.com/dicnunz/dispatch/actions/workflows/ci.yml/badge.svg)](https://github.com/dicnunz/dispatch/actions/workflows/ci.yml)
+[![ci](https://github.com/dicnunz/codex-sessions/actions/workflows/ci.yml/badge.svg)](https://github.com/dicnunz/codex-sessions/actions/workflows/ci.yml)
 
 A Python utility for coordinating local Codex sessions with project discovery, cooperative filesystem locks and an optional Telegram bridge.
 
@@ -11,8 +11,8 @@ Unofficial project. Not affiliated with OpenAI or Telegram. The optional Telegra
 ## Quick Demo
 
 ```bash
-git clone https://github.com/dicnunz/dispatch.git
-cd dispatch
+git clone https://github.com/dicnunz/codex-sessions.git
+cd codex-sessions
 ./scripts/demo.sh
 ```
 
@@ -60,8 +60,8 @@ Requirements:
 - optional: Telegram bot token from `@BotFather` if you want phone control
 
 ```bash
-git clone https://github.com/dicnunz/dispatch.git
-cd dispatch
+git clone https://github.com/dicnunz/codex-sessions.git
+cd codex-sessions
 ./scripts/install.sh
 ```
 

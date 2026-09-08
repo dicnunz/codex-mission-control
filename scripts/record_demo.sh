@@ -43,7 +43,7 @@ write_social() {
   <text x="108" y="382" fill="#f5f5f5" font-family="Arial, sans-serif" font-size="28">Missions. Lanes. Approval packets.</text>
   <text x="108" y="432" fill="#b8b8b8" font-family="Arial, sans-serif" font-size="26">Optional Telegram remote.</text>
   <rect x="108" y="486" width="492" height="46" rx="23" fill="#f5f5f5"/>
-  <text x="132" y="516" fill="#111111" font-family="Arial, sans-serif" font-size="18" font-weight="700">github.com/dicnunz/dispatch</text>
+  <text x="132" y="516" fill="#111111" font-family="Arial, sans-serif" font-size="18" font-weight="700">github.com/dicnunz/codex-sessions</text>
 </svg>
 SVG
 }
@@ -218,7 +218,7 @@ write_frame "$TMP/frame8.svg" \
   "first blocker?" \
   "run fresh clone test" \
   "open feedback issue" \
-  "github.com/dicnunz/dispatch"
+  "github.com/dicnunz/codex-sessions"
 
 for i in 1 2 3 4 5 6 7 8; do
   render_svg "$TMP/frame$i.svg" "$TMP/frame$i.png"

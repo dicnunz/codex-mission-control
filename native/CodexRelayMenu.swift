@@ -151,7 +151,7 @@ final class RelayMenuApp: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func openGitHubRepo() {
-        if let url = URL(string: "https://github.com/dicnunz/dispatch") {
+        if let url = URL(string: "https://github.com/dicnunz/codex-sessions") {
             NSWorkspace.shared.open(url)
         }
     }
