@@ -12,8 +12,8 @@ Codex Mission Control is macOS-first and local-only.
 ## Safe First Run
 
 ```bash
-git clone https://github.com/dicnunz/codex-mission-control.git
-cd codex-mission-control
+git clone https://github.com/dicnunz/dispatch.git
+cd dispatch
 ./scripts/install.sh
 ```
 

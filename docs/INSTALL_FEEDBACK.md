@@ -7,8 +7,8 @@ Use this guide to report a problem during installation or first use. Start with 
 Check the [installation requirements](../INSTALL.md#requirements), then run:
 
 ```bash
-git clone https://github.com/dicnunz/codex-mission-control.git
-cd codex-mission-control
+git clone https://github.com/dicnunz/dispatch.git
+cd dispatch
 ./scripts/install.sh
 ```
 
@@ -48,4 +48,4 @@ Then DM the bot:
 
 Do not paste bot tokens, `.env`, private screenshots, personal files, raw Codex transcripts, auth files, or unredacted logs.
 
-[Open the install feedback form](https://github.com/dicnunz/codex-mission-control/issues/new?template=install-feedback.yml).
+[Open the install feedback form](https://github.com/dicnunz/dispatch/issues/new?template=install-feedback.yml).
