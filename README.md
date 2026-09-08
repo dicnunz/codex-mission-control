@@ -4,24 +4,9 @@
 
 A Python utility for coordinating local Codex sessions with project discovery, cooperative filesystem locks and an optional Telegram bridge.
 
-[Explore the example dashboard](https://dicnunz.github.io/demos/mission-control/) — an interactive preview with synthetic missions and owners, with no connected workspace.
+[Explore the example dashboard](https://dicnunz.github.io/demos/mission-control/) · An interactive preview with synthetic missions and owners, with no connected workspace.
 
-Codex Mission Control is for Mac users running several Codex chats against real projects, browsers, inboxes, repos, and account surfaces.
-
-It finds your projects, turns them into missions, locks shared surfaces, keeps approval gates, and lets you text the whole setup from your phone.
-
-Unofficial project. Not affiliated with OpenAI or Telegram.
-
-## The Problem
-
-One Codex chat is simple. Several useful Codex chats can collide:
-
-- two chats use the same browser session,
-- one edits a repo while another tries to push it,
-- one drafts an email while another touches the inbox,
-- one reaches a public, payment, or account surface without the rest of the work knowing.
-
-Mission Control makes that coordination explicit with projects, lanes, outboxes, and approval packets.
+Unofficial project. Not affiliated with OpenAI or Telegram. The optional Telegram bridge runs through your Mac; it does not provide a hosted agent service or VNC screen mirror. It does not bypass logins, MFA, limits, or confirmations.
 
 ## Quick Demo
 
@@ -31,7 +16,7 @@ cd codex-mission-control
 ./scripts/demo.sh
 ```
 
-No Telegram token needed. The demo proves the core loop: discover a project, claim the browser lane, block a second browser claim, generate an approval packet, and print the phone flow.
+No Telegram token needed. The demo runs the core loop: discover a project, claim the browser lane, block a second browser claim, generate an approval packet, and print the phone flow.
 
 Watch the 44-second demo: [assets/codex-mission-control-demo.mp4](assets/codex-mission-control-demo.mp4)
 
@@ -55,10 +40,6 @@ It does not move your projects, run a hosted dashboard, or create another accoun
 
 ## Coordination model
 
-Multiple Codex chats can all be useful and still wreck each other if they touch the same browser, inbox, GitHub repo, desktop, social account, or payment surface.
-
-Mission Control makes those collisions visible:
-
 ```bash
 cmc claim BROWSER FLIGHT "using the browser"
 cmc claim BROWSER OTHER "also using the browser"
@@ -68,16 +49,6 @@ cmc claim BROWSER OTHER "also using the browser"
 Claims and releases are serialized per lane with a standard-library filesystem guard on macOS and Linux. Reclaiming an expired lane uses its current owner's timeout, never the incoming claimant's timeout. The default lease is 1,800 seconds; `--ttl 0` holds a lane until its owner releases it.
 
 Use a unique owner name for each session. Check that the previous session has stopped before reclaiming an expired lease: expiry does not stop running work. These are cooperative local locks, not a permission system. All participating sessions must use the updated CLI; network filesystems and mixed CLI versions are not supported coordination targets.
-
-## Who It Is For
-
-- Codex-heavy Mac users with multiple active projects
-- people who run several Codex chats at once
-- builders who want local coordination without a hosted agent service
-- users who want a private Telegram remote for their Mac-side Codex setup
-- anyone who needs public/account/payment actions to stop at exact approval
-
-Not for people running one simple Codex chat at a time.
 
 ## Install
 
@@ -102,7 +73,7 @@ By default, setup does not rewrite your projects. `cmc adopt` previews the `AGEN
 
 It also links `cmc` into `~/.local/bin` when possible. If that folder is not on your `PATH`, use `./cmc` from the repo.
 
-The last installer screen gives you the dashboard path and the three commands that matter first:
+The last installer screen gives you the dashboard path and these initial commands:
 
 ```bash
 cmc status
@@ -137,7 +108,7 @@ Install the phone remote during setup or later:
 ./scripts/status_ui.sh
 ```
 
-Discovery is deliberately boring: `cmc discover` scans the standard Mac roots; `cmc discover /path/to/project` scans only that path; `cmc discover --include-defaults /extra/root` scans both. It creates symlinks in the hub and per-mission outboxes. Your real folders stay where they are.
+Project discovery: `cmc discover` scans the standard Mac roots; `cmc discover /path/to/project` scans only that path; `cmc discover --include-defaults /extra/root` scans both. It creates symlinks in the hub and per-mission outboxes. Your real folders stay where they are.
 
 `cmc dashboard` writes a self-contained snapshot at `<hub>/_ops/dashboard.html` and opens it locally. Use `cmc --hub /path/to/hub dashboard --no-open` to generate it without opening a browser. The page shows full lane owners, lease expiry, stale or unreadable claims, project paths, and outbox freshness. Filter lanes, search missions, or compose a shell-quoted claim command. Every copied command targets the selected hub. Run `cmc dashboard` again to refresh the snapshot; browser reload alone does not read new hub state.
 
@@ -166,14 +137,6 @@ Mission Control Relay is the optional Telegram remote pointed at the hub:
 
 Normal Telegram messages still go to local Codex through your Mac. Image captions still attach the image to Codex. Relay remains allow-listed to your private Telegram user/chat.
 
-## Local Demo
-
-```bash
-./scripts/demo.sh
-```
-
-The demo proves the core loop without Telegram secrets: initialize a temp hub, discover a mission, claim a browser lane, show the blocked second claim, generate an approval packet, and print the phone flow.
-
 Fresh clone check:
 
 ```bash
@@ -181,15 +144,6 @@ Fresh clone check:
 ```
 
 Report an install problem with the [install feedback guide](docs/INSTALL_FEEDBACK.md).
-
-## What It Is Not
-
-| It is | It is not |
-| --- | --- |
-| Local traffic control for Codex work on your Mac | An official OpenAI product |
-| A mission hub over your existing project folders | A hosted agent service |
-| A lane and approval system for shared surfaces | A way to bypass logins, MFA, limits, or confirmations |
-| A Telegram remote for the hub | A VNC screen mirror |
 
 ## Verify
 
@@ -228,4 +182,3 @@ Stop Relay with:
 ./scripts/uninstall.sh
 ```
 
-Mission Control is the hub. Relay is the remote.
