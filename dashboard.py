@@ -40,7 +40,11 @@ def lease_detail(meta: dict[str, object], now: float) -> str:
     if ttl == 0:
         return "No expiry"
     remaining = created + ttl - now
-    return f"Expired {duration(-remaining)} ago" if remaining < 0 else f"{duration(remaining)} left"
+    try:
+        expiry = datetime.fromtimestamp(created + ttl).astimezone().strftime("%d %b %Y · %H:%M %Z")
+    except (ValueError, OverflowError, OSError):
+        return "Expiry unknown"
+    return f"Expired {expiry}" if remaining < 0 else f"Expires {expiry}"
 
 
 def render_dashboard(hub: Path) -> str:
@@ -62,7 +66,7 @@ def render_dashboard(hub: Path) -> str:
     abbreviations = ["BR", "GH", "EM", "SO", "CO", "DT", "GW"]
     for lane, abbreviation in zip(mc.DEFAULT_LANES, abbreviations):
         meta = locks.get(lane)
-        state, label, owner, reason, lease = "clear", "Clear", "Available", "Ready for a new session", "—"
+        state, label, owner, reason, lease = "clear", "Clear", "Unclaimed", "No claim recorded", "—"
         if meta is not None:
             owner = str(meta.get("owner") or "Unknown owner")
             reason = str(meta.get("reason") or "No reason recorded")
@@ -108,7 +112,7 @@ def render_dashboard(hub: Path) -> str:
         outbox = mc.outbox_dir(hub) / f"{call}.md"
         try:
             outbox_age = now - outbox.stat().st_mtime
-            update = f"Outbox · {duration(outbox_age)} ago"
+            update = "Outbox · " + datetime.fromtimestamp(outbox.stat().st_mtime).astimezone().strftime("%d %b %Y · %H:%M %Z")
             old = outbox_age > 48 * 3600
         except OSError:
             update, old = "No outbox yet", False
@@ -125,24 +129,24 @@ def render_dashboard(hub: Path) -> str:
     health_detail = (f"{len(missing_ops)} missing hub files · {broken} unavailable projects"
                      if missing_ops or broken else "Hub files and project links are in place.")
     if review:
-        title, description = "Check the handoff.", f"{review} lane{'s need' if review != 1 else ' needs'} a review. Confirm the previous session has stopped before reclaiming."
+        title, description = "Codex Sessions", f"{review} lane{'s need' if review != 1 else ' needs'} a review. Confirm the previous session has stopped before reclaiming."
     elif active:
-        title, description = "Work is in motion.", f"{active} lane{'s are' if active != 1 else ' is'} in use. {clear} remain clear for another session."
+        title, description = "Codex Sessions", f"{active} lane{'s are' if active != 1 else ' is'} in use. {clear} remain clear for another session."
     else:
-        title, description = "Ready for your next session.", "All shared surfaces are clear. Claim a lane before starting shared work."
+        title, description = "Codex Sessions", "All shared surfaces are clear. Claim a lane before starting shared work."
 
     css = (mc.ROOT / "assets" / "dashboard.css").read_text()
     js = (mc.ROOT / "assets" / "dashboard.js").read_text()
     return f'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light"><link rel="icon" href="data:,">
-<title>Codex Mission Control</title><style>{css}</style></head><body>
+<title>Codex Sessions</title><style>{css}</style></head><body>
 <a class="skip-link" href="#overview">Skip to workspace</a>
-<aside class="sidebar"><a class="brand" href="#overview"><span class="brand-mark" aria-hidden="true">⌘</span><span>MISSION<br>CONTROL</span></a>
+<aside class="sidebar"><a class="brand" href="#overview"><span class="brand-mark" aria-hidden="true">⌘</span><span>CODEX<br>SESSIONS</span></a>
 <div class="workspace-label">LOCAL WORKSPACE</div><nav aria-label="Workspace"><a href="#overview" class="current"><span>01</span> Overview</a><a href="#lanes"><span>02</span> Surface lanes</a><a href="#missions"><span>03</span> Missions</a><a href="#commands"><span>04</span> Commands</a></nav>
 <div class="sidebar-bottom"><span class="local-dot"></span> On this machine<p>{esc(hub)}</p><span class="version">CMC / {mc.VERSION}</span></div></aside>
 <main id="overview"><header class="topbar"><span>CODEX / WORKSPACE OVERVIEW</span><span class="snapshot-label"><span class="snapshot-dot"></span> Local snapshot</span></header>
-<section class="intro"><div><p class="eyebrow">YOUR CONTROL ROOM</p><h1>{title}</h1><p class="intro-description">{description}</p></div><div class="snapshot"><time>{esc(stamp)}</time>{copy_button(command('dashboard'), 'Copy refresh command', 'quiet')}<small>Run in your terminal to take a new snapshot.</small></div></section>
+<section class="intro"><div><h1>{title}</h1><p class="intro-description">{description}</p></div><div class="snapshot"><time datetime="{datetime.fromtimestamp(now).astimezone().isoformat()}">{esc(stamp)}</time>{copy_button(command('dashboard'), 'Copy refresh command', 'quiet')}<small>Static snapshot. States below are recorded at this time. Run the refresh command before acting.</small></div></section>
 <section class="metrics" aria-label="Workspace totals"><div><span class="metric-label">Lanes in use</span><strong>{active:02}</strong><span>Owned by a session</span></div><div><span class="metric-label">Clear lanes</span><strong class="green-text">{clear:02}</strong><span>Available to claim</span></div><div class="{'metric-alert' if review else ''}"><span class="metric-label">Need review</span><strong>{review:02}</strong><span>{stale} stale · {unknown} unknown</span></div><div><span class="metric-label">Missions</span><strong>{len(missions):02}</strong><span>Projects in this hub</span></div></section>
 <div class="workspace-grid"><section class="panel lane-panel" id="lanes"><div class="section-heading"><div><p class="eyebrow">COORDINATION</p><h2>Surface lanes <span class="count">07</span></h2></div><span class="section-note">One owner per surface</span></div>
 <div class="filters" role="group" aria-label="Filter lanes"><button data-filter="all" aria-pressed="true">All lanes</button><button data-filter="held" aria-pressed="false">In use</button><button data-filter="review" aria-pressed="false">Needs review</button><span id="lane-count" role="status">7 lanes</span></div>
@@ -152,7 +156,7 @@ def render_dashboard(hub: Path) -> str:
 <section class="panel health"><div class="health-title"><h2>Hub check</h2><span class="badge {'unknown' if missing_ops or broken else 'clear'}">{health}</span></div><p>{esc(health_detail)}</p><div class="relay-line"><span>Optional Relay</span><strong>{esc(mc.relay_state())}</strong></div>{copy_button(command('doctor'), 'Copy health check', 'quiet')}</section></aside></div>
 <section class="panel missions-panel" id="missions"><div class="section-heading"><div><p class="eyebrow">PROJECT INDEX</p><h2>Missions <span class="count">{len(missions):02}</span></h2></div><div class="mission-tools"><label class="sr-only" for="mission-search">Search missions</label><input id="mission-search" type="search" placeholder="Search missions…">{copy_button(command('discover'), 'Copy discover command', 'quiet')}</div></div><div class="mission-list">{''.join(mission_rows)}</div><p id="mission-empty" class="empty" role="status" hidden>No missions match your search.</p></section>
 <section class="reference"><details><summary>Approval packet <span>Prepare the exact action for review</span></summary><pre>{esc(mc.packet_text())}</pre>{copy_button(command('packet'), 'Copy packet command')}</details><details><summary>Handoffs <span>Merge mission outboxes</span></summary><p>Write session updates to the mission outbox, then merge them into the global dashboard.</p><code>{esc(mc.outbox_dir(hub))}</code>{copy_button(command('merge'), 'Copy merge command')}</details></section>
-<footer><span>Local files. Shared context. Deliberate actions.</span><span>Snapshot only · Regenerate with <code>cmc dashboard</code></span></footer></main>
+<footer><span>Cooperative session locks</span><span>Snapshot only · Regenerate with <code>cmc dashboard</code></span></footer></main>
 <dialog id="copy-dialog"><h2>Copy command</h2><p>Automatic copying is unavailable. Select and copy the text below.</p><textarea id="manual-copy" readonly rows="5" aria-label="Text to copy"></textarea><button id="close-copy" type="button">Done</button></dialog><div id="copy-status" class="toast" role="status" aria-live="polite"></div>
 <script>{js}</script></body></html>'''
 

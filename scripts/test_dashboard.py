@@ -56,6 +56,15 @@ class DashboardTests(unittest.TestCase):
         self.assertEqual(path.stat().st_mode & 0o777, 0o600)
         return Page(path.read_text())
 
+    def test_snapshot_names_time_and_absolute_lease_expiry(self):
+        mc.claim_lane(self.hub, "BROWSER", "TEST", "snapshot test", ttl=1800)
+        page = self.render()
+        text = " ".join(page.text)
+        self.assertIn("Codex Sessions", text)
+        self.assertIn("States below are recorded at this time", text)
+        self.assertIn("Expires ", text)
+        self.assertNotRegex(text, r"\d+m left")
+
     def test_commands_target_selected_hub_and_preserve_full_owner(self):
         # macOS temporary paths traverse /var -> /private/var. Exercise the
         # same alias on every platform so command targeting checks identity.
