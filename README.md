@@ -2,183 +2,88 @@
 
 [![ci](https://github.com/dicnunz/codex-sessions/actions/workflows/ci.yml/badge.svg)](https://github.com/dicnunz/codex-sessions/actions/workflows/ci.yml)
 
-A Python utility for coordinating local Codex sessions with project discovery, cooperative filesystem locks and an optional Telegram bridge.
+Coordinate local Codex sessions with project discovery, cooperative filesystem locks, and an optional Telegram remote.
 
-[Explore the example dashboard](https://dicnunz.github.io/demos/mission-control/) · An interactive preview with synthetic missions and owners, with no connected workspace.
-
-Unofficial project. Not affiliated with OpenAI or Telegram. The optional Telegram bridge runs through your Mac; it does not provide a hosted agent service or VNC screen mirror. It does not bypass logins, MFA, limits, or confirmations.
-
-## Quick Demo
-
-```bash
-git clone https://github.com/dicnunz/codex-sessions.git
-cd codex-sessions
-./scripts/demo.sh
-```
-
-No Telegram token needed. The demo runs the core loop: discover a project, claim the browser lane, block a second browser claim, generate an approval packet, and print the phone flow.
-
-Watch the 44-second demo: [assets/codex-mission-control-demo.mp4](assets/codex-mission-control-demo.mp4)
-
-## What It Does
-
-```text
-projects -> missions -> lane locks -> approval packets -> optional Telegram remote
-```
-
-It creates:
-
-- a local hub at `~/Codex Mission Control`
-- a non-destructive `missions/` symlink index to your real projects
-- a private local dashboard for missions, lanes, Relay health, and copyable commands
-- lane locks for browser, GitHub, email, public social, commerce, desktop, and global writes
-- mission outboxes for handoffs
-- approval packets for risky actions
-- an optional Telegram remote: **Mission Control Relay**
-
-It does not move your projects, run a hosted dashboard, or create another account.
-
-## Coordination model
-
-```bash
-cmc claim BROWSER FLIGHT "using the browser"
-cmc claim BROWSER OTHER "also using the browser"
-# held: BROWSER
-```
-
-Claims and releases are serialized per lane with a standard-library filesystem guard on macOS and Linux. Reclaiming an expired lane uses its current owner's timeout, never the incoming claimant's timeout. The default lease is 1,800 seconds; `--ttl 0` holds a lane until its owner releases it.
-
-Use a unique owner name for each session. Check that the previous session has stopped before reclaiming an expired lease: expiry does not stop running work. These are cooperative local locks, not a permission system. All participating sessions must use the updated CLI; network filesystems and mixed CLI versions are not supported coordination targets.
+[Example dashboard](https://dicnunz.github.io/demos/mission-control/) (synthetic data) · [44-second demo](assets/codex-mission-control-demo.mp4)
 
 ## Install
 
-Requirements:
+Requires macOS, the Codex Mac app installed and signed in, and `python3`.
 
-- macOS
-- Codex Mac app installed and signed in
-- Python 3 available as `python3`
-- optional: Telegram bot token from `@BotFather` if you want phone control
-
-```bash
+```sh
 git clone https://github.com/dicnunz/codex-sessions.git
 cd codex-sessions
 ./scripts/install.sh
 ```
 
-Full install notes: [INSTALL.md](INSTALL.md).
+The installer creates `~/Codex Mission Control`, indexes projects with symlinks, and links `cmc` into `~/.local/bin` when possible. Project folders stay in place. Use `./cmc` from the checkout if `~/.local/bin` is outside your `PATH`.
 
-The installer initializes the hub, discovers projects under `~/Developer`, `~/Projects`, `~/Documents/Codex`, and the current folder, offers backed-up `AGENTS.md` mission blocks, then runs health checks.
-
-By default, setup does not rewrite your projects. `cmc adopt` previews the `AGENTS.md` blocks Mission Control would add; `cmc adopt --write` applies them with backups.
-
-It also links `cmc` into `~/.local/bin` when possible. If that folder is not on your `PATH`, use `./cmc` from the repo.
-
-The last installer screen gives you the dashboard path and these initial commands:
-
-```bash
+```sh
 cmc status
 cmc lanes
-cmc packet
 cmc dashboard
 ```
 
-Install the phone remote during setup or later:
+To try the coordination loop without installing or configuring Telegram, run `./scripts/demo.sh` from the checkout. See [INSTALL.md](INSTALL.md) for setup, runtime paths, and Relay removal.
 
-```bash
+## Use
+
+`cmc discover` searches `~/Developer`, `~/Projects`, `~/Documents/Codex`, and the current directory. To select a root:
+
+```sh
+cmc discover /path/to/project
+cmc discover --include-defaults /extra/root
+```
+
+Each discovered project has a mission entry and an outbox in the hub. `cmc merge` collects the outboxes. `cmc packet --help` lists the fields for an approval packet.
+
+Project instructions are opt-in: `cmc adopt` previews the `AGENTS.md` additions; `cmc adopt --write` applies them and backs up existing files. The installer skips adoption unless you choose to write or set `CMC_ADOPT_AGENTS=yes`.
+
+### Shared resources
+
+Sessions claim lanes before using shared resources such as the browser, email, or GitHub:
+
+```sh
+cmc claim BROWSER SESSION_A "using the browser"
+cmc claim BROWSER SESSION_B "using the browser"
+# held: BROWSER
+cmc release BROWSER SESSION_A
+```
+
+Claims and releases are serialized per lane. The default lease is 1,800 seconds; `--ttl 0` holds it until its owner releases it. Reclamation uses the existing owner's timeout.
+
+Use a unique owner per session. Check that previous work has stopped before reclaiming an expired lease: expiry cannot stop a running session. Locks require cooperation from every session and grant no permissions. Use the same updated CLI on a local macOS or Linux filesystem; network filesystems and mixed CLI versions are unsupported.
+
+### Dashboard
+
+`cmc dashboard` writes and opens `<hub>/_ops/dashboard.html`, a private snapshot of missions, claims, and outboxes. Run the command again to refresh its data.
+
+To generate a snapshot for another hub without opening it:
+
+```sh
+cmc --hub /path/to/hub dashboard --no-open
+```
+
+### Telegram
+
+With a bot token from `@BotFather`, install the optional Mission Control Relay:
+
+```sh
 ./cmc relay install
 ```
 
-## Local Commands
+Send `/mission status`, `/mission lanes`, or `/mission projects` to inspect the hub; `/tools` lists available commands. Messages and image captions go to local Codex through your Mac. Access is restricted to the configured Telegram user/chat allowlist. Keep the bot token private.
 
-```bash
-./cmc init
-./cmc discover
-./cmc status
-./cmc doctor
-./cmc lanes
-./cmc projects
-./cmc instructions
-./cmc adopt
-./cmc adopt --write
-./cmc claim BROWSER FLIGHT "using the browser"
-./cmc release BROWSER FLIGHT
-./cmc packet --mission APP --action "send reply" --target "email thread" --object "exact text" --proof "proof/email.png" --risk "outreach" --why "warm inbound" --stop "after one send"
-./cmc merge
-./cmc dashboard
-./scripts/status_ui.sh
-```
+Relay requires the Mac to run. It preserves login, MFA, usage-limit, and confirmation requirements.
 
-Project discovery: `cmc discover` scans the standard Mac roots; `cmc discover /path/to/project` scans only that path; `cmc discover --include-defaults /extra/root` scans both. It creates symlinks in the hub and per-mission outboxes. Your real folders stay where they are.
+## Development
 
-`cmc dashboard` writes a self-contained snapshot at `<hub>/_ops/dashboard.html` and opens it locally. Use `cmc --hub /path/to/hub dashboard --no-open` to generate it without opening a browser. The page shows full lane owners, lease expiry, stale or unreadable claims, project paths, and outbox freshness. Filter lanes, search missions, or compose a shell-quoted claim command. Every copied command targets the selected hub. Run `cmc dashboard` again to refresh the snapshot; browser reload alone does not read new hub state.
-
-`cmc adopt` previews the `AGENTS.md` blocks Mission Control would add to discovered projects. `cmc adopt --write` applies them with backups when an `AGENTS.md` already exists. The installer defaults to preview-only unless `CMC_ADOPT_AGENTS=yes` is set.
-
-## Relay Commands
-
-Mission Control Relay is the optional Telegram remote pointed at the hub:
-
-```text
-/mission status
-/mission lanes
-/mission projects
-/mission packet
-/mission health
-/mission doctor
-/mission instructions
-/alive
-/health
-/policy
-/screenshot
-/tools
-/jobs
-/cd path
-```
-
-Normal Telegram messages still go to local Codex through your Mac. Image captions still attach the image to Codex. Relay remains allow-listed to your private Telegram user/chat.
-
-Fresh clone check:
-
-```bash
-./scripts/fresh_clone_test.sh
-```
-
-Report an install problem with the [install feedback guide](docs/INSTALL_FEEDBACK.md).
-
-## Verify
-
-```bash
-python3 -m py_compile mission_control.py codex_relay.py scripts/configure.py
-PYTHONPATH=. python3 scripts/smoke_test.py
-python3 -m unittest discover -s scripts -p 'test_*.py'
-./cmc doctor
-./scripts/demo.sh
-./scripts/fresh_clone_test.sh
-./scripts/doctor.sh
+```sh
 ./scripts/qa.sh
 ```
 
-Runtime files:
+QA runs syntax checks, unit tests, coordination tests, the demo, and a fresh-clone check. The core CLI, dashboard, and lane tests support Linux; the installer, LaunchAgent, menu bar, and `scripts/doctor.sh` require macOS. QA reports platform skips on Linux.
 
-```text
-~/Codex Mission Control
-~/Library/Application Support/CodexRelay
-~/Library/LaunchAgents/com.codexrelay.agent.plist
-```
+Update with `./scripts/update.sh`. For installation failures, see the [feedback guide](docs/INSTALL_FEEDBACK.md).
 
-The Relay runtime path keeps the original `CodexRelay` name for upgrade compatibility.
-
-The core CLI, local dashboard, and lane regression tests also run on Linux. The installer, LaunchAgent, menu bar, and `scripts/doctor.sh` are macOS-specific; QA reports those platform skips on Linux.
-
-Update later with:
-
-```bash
-./scripts/update.sh
-```
-
-Stop Relay with:
-
-```bash
-./scripts/uninstall.sh
-```
-
+Unofficial project, unaffiliated with OpenAI or Telegram.
