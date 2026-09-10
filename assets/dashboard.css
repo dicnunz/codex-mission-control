@@ -140,3 +140,53 @@ dialog button { margin-top:12px; }
 @media(max-width:1000px) { .sidebar { width:156px; padding:28px 13px; } .brand { font-size:10px; gap:8px; } .brand-mark { width:32px; height:34px; font-size:26px; } nav a { padding-left:6px; font-size:11px; } nav a span { margin-right:6px; } main { margin-left:156px; padding:0 24px; } .workspace-grid { grid-template-columns:1fr; } .action-column { grid-template-columns:1fr 1fr; align-items:start; } .lane summary { grid-template-columns:32px minmax(100px,1fr) minmax(120px,1.4fr) 100px 10px; padding:17px 20px; gap:12px; } .intro { flex-wrap:wrap; gap:18px; } .snapshot { display:flex; text-align:left; flex-basis:100%; align-items:center; flex-wrap:wrap; gap:10px; } .snapshot time { margin:0; } .snapshot small { max-width:none; margin:0; } .metrics>div { padding:15px; } .metrics strong { font-size:36px; } .mission-tools { flex-wrap:wrap; justify-content:flex-end; } .mission-meta { flex-direction:column; gap:6px; align-items:flex-end; } .reference summary span { display:block; margin:5px 0 0 15px; } }
 @media(max-width:700px) { html { scroll-padding-top:18px; } .sidebar { position:static; width:auto; padding:17px 20px 14px; display:block; } .brand { font-size:10px; } .brand br { display:none; } .brand span:last-child { display:flex; gap:5px; } .brand-mark { height:28px; width:28px; font-size:23px; border-radius:7px; } .workspace-label,.sidebar-bottom { display:none; } nav { flex-direction:row; gap:4px; margin-top:17px; } nav a { font-size:10px; padding:8px 10px; } nav a span { display:none; } main { margin:0; padding:0 18px; } .topbar { min-height:53px; font-size:8px; letter-spacing:.6px; } .intro { padding:27px 0 24px; } h1 { font-size:32px; letter-spacing:-1px; } .intro-description { font-size:12px; } .metrics { grid-template-columns:repeat(2,1fr); margin-bottom:22px; } .metrics>div:nth-child(2) { border-right:0; } .metrics>div:nth-child(-n+2) { border-bottom:1px solid #d8dfd2; } .metrics>div { padding:16px 20px; } .metrics strong { font-size:39px; } .section-heading { padding:19px 17px 16px; } .lane summary { grid-template-columns:26px minmax(95px,1fr) 94px 10px; gap:10px; padding:16px; } .lane-owner { grid-column:2; grid-row:2; margin-top:-7px; } .lane-owner small { white-space:normal; } .lane-state { grid-column:3; grid-row:1 / span 2; } .expand { grid-column:4; grid-row:1 / span 2; } .lane-name small { display:none; } .lane-name { font-size:12px; } .lane-symbol { grid-row:1 / span 2; } .lane-detail { padding-left:16px; } .action-column { grid-template-columns:1fr; } .composer { padding:22px; } .form-row { grid-template-columns:minmax(0,1fr) 120px; } label { font-size:11px; } input,select { font-size:16px; min-height:42px; } .field-help { font-size:10px; } .primary-button { font-size:12px; min-height:43px; } .missions-panel .section-heading { align-items:flex-start; flex-direction:column; } .mission-tools { width:100%; flex-wrap:nowrap; } .mission-tools input { width:100%; min-width:0; font-size:14px; } .mission-tools button { font-size:9px; white-space:normal; max-width:105px; min-height:42px; } .mission { grid-template-columns:42px minmax(0,1fr); padding:18px 16px; gap:12px; } .mission-meta { grid-column:2; flex-direction:row; align-items:center; justify-content:space-between; } .mission-name p { font-size:10px; } .reference { grid-template-columns:1fr; gap:0; } footer { flex-direction:column; gap:6px; padding-bottom:25px; } .skip-link { left:20px; } }
 @media(prefers-reduced-motion:reduce) { html { scroll-behavior:auto; } }
+/* Primer content/pane hierarchy: compact navigation, operational lists first. */
+:root { --paper:#fff; --surface:#fff; --ink:#1f2328; --muted:#59636e; --line:#d1d9e0; --green:#1a7f37; --green-soft:#dafbe1; --amber:#9a6700; --amber-soft:#fff8c5; }
+.sidebar { position:static; width:auto; padding:12px 24px; background:#f6f8fa; color:var(--ink); border-bottom:1px solid var(--line); display:flex; flex-direction:row; align-items:center; gap:32px; }
+.brand { font-size:14px; letter-spacing:0; gap:8px; white-space:nowrap; }
+.brand br { display:none; }
+.brand span:last-child { display:flex; gap:4px; }
+.brand-mark { width:28px; height:28px; border:0; color:#59636e; font-size:24px; }
+.workspace-label,.sidebar-bottom { display:none; }
+nav { flex-direction:row; gap:4px; margin:0; }
+nav a { font-size:13px; padding:8px 12px; color:var(--muted); }
+nav a span { display:none; }
+nav a.current,nav a:hover { background:#eaeef2; color:var(--ink); }
+main { margin:0 auto; max-width:1600px; padding:0 24px 24px; }
+.topbar { min-height:44px; font-size:12px; letter-spacing:0; }
+.intro { padding:20px 0; align-items:flex-start; gap:24px; }
+h1 { font-size:24px; letter-spacing:-.02em; }
+.intro-description { margin-top:8px; font-size:14px; max-width:72ch; }
+.snapshot { flex-basis:320px; }
+.snapshot time,.snapshot small { font-size:12px; line-height:1.5; max-width:none; }
+.metrics { background:transparent; border:0; border-bottom:1px solid var(--line); border-radius:0; margin-bottom:0; }
+.metrics>div { padding:12px 16px; border-right:1px solid var(--line); }
+.metrics>div:first-child { padding-left:0; }
+.metrics strong { display:inline-block; font:600 24px/1.5 var(--mono); letter-spacing:-1px; margin:4px 8px 0 0; }
+.metrics .metric-label,.metrics>div>span:last-child { font-size:12px; }
+.metrics .metric-alert { background:transparent; }
+.workspace-grid { grid-template-columns:minmax(0,1fr) 352px; gap:24px; }
+.panel { border:0; border-radius:0; box-shadow:none; }
+.section-heading { padding:20px 0 16px; }
+.eyebrow { font-family:inherit; font-size:12px; font-weight:400; line-height:1.5; letter-spacing:0; text-transform:none; }
+h2 { font-size:16px; letter-spacing:0; }
+.section-note,.count,.panel-footnote,.panel-description,.field-help,label,.health p,.reference p,.reference summary,.reference summary span,.mission-name p,.mission-meta span,footer { font-size:12px; }
+.filters { padding:0 0 12px; }
+.filters button { font-size:13px; }
+.lane summary { grid-template-columns:32px minmax(100px,.8fr) minmax(120px,1fr) minmax(128px,.9fr) 12px; gap:12px; padding:16px 0; }
+.lane-name,.lane-owner { font-size:14px; }
+.lane-owner small,.lane-name small,.lane-state small { font-size:12px; white-space:normal; }
+.lane-symbol { border:0; background:#f6f8fa; color:#59636e; }
+.lane-detail { padding:0 0 16px 44px; font-size:13px; }
+.badge { font-size:12px; }
+.action-column { padding-top:20px; border-left:1px solid var(--line); padding-left:24px; }
+.composer { padding:0; }
+.health { padding:20px 0; border-top:1px solid var(--line); }
+input,select,textarea { font-size:13px; }
+.mission { padding:16px 0; }
+.mission-name h3 { font-size:14px; }
+.reference { gap:24px; }
+.reference pre,.reference code { font-size:12px; }
+.skip-link { left:24px; }
+@media(max-width:1000px) { .workspace-grid { grid-template-columns:1fr; } .action-column { padding:20px 0; border-left:0; border-top:1px solid var(--line); display:grid; grid-template-columns:1fr 1fr; gap:24px; } .health { border:0; padding:0; } .snapshot { flex-basis:100%; } }
+@media(max-width:767px) { .sidebar { padding:12px 16px; gap:12px; flex-wrap:wrap; } nav { width:100%; gap:0; } nav a { padding:8px 12px; font-size:12px; } main { padding:0 16px 16px; } .intro { padding:16px 0; } .topbar { font-size:11px; } .metrics>div { padding:12px; } .metrics>div:first-child { padding-left:12px; } .metrics strong { font-size:24px; } .lane summary { grid-template-columns:28px minmax(80px,1fr) 128px 10px; gap:8px; padding:16px 0; } .lane-state { grid-column:3; grid-row:1/span 2; } .lane-owner { grid-column:2; grid-row:2; } .lane-detail { padding-left:0; } .action-column { grid-template-columns:1fr; } .mission-tools button { font-size:12px; } .mission { padding:16px 0; } }
